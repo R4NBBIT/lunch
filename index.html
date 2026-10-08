@@ -185,7 +185,7 @@ const menus=()=>state.menus??DEFAULT_MENUS;
 const places=()=>state.places??DEFAULT_PLACES;
 function todayKST(){const d=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Seoul",weekday:"short"}).format(new Date());return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(d)}
 function linkOf(p){return p.url||mapLink(p.name)}
-function mapLink(name){const q=/위례/.test(name)?name:name+" 위례";return "https://map.naver.com/p/search/"+encodeURIComponent(q)}
+function mapLink(name){const q=/위례/.test(name)?name:name+" 위례";return "https://map.kakao.com/link/search/"+encodeURIComponent(q)}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 
 let toastT;function toast(msg){$("toast").textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>$("toast").textContent="",2600)}
@@ -221,7 +221,7 @@ function renderPlate(emptyMsg){
     el.textContent=c.name;
     meta.innerHTML=`<div>${c.cat?`<span class="chip">${esc(c.cat)}</span> `:""}${c.dist?`걸어서 ${c.dist}m`:""}</div>
       <div>${esc(c.addr||"")}</div>
-      <div>${c.url?`<a href="${esc(c.url)}" target="_blank" rel="noopener">카카오맵 ↗</a> · `:""}<a href="${mapLink(c.name)}" target="_blank" rel="noopener">네이버 지도 ↗</a></div>`;
+      <div><a href="${esc(linkOf(c))}" target="_blank" rel="noopener">카카오맵에서 보기 ↗</a></div>`;
   }
 }
 function renderOffNote(){
