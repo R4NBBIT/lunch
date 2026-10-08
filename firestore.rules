@@ -15,7 +15,7 @@ service cloud.firestore {
       // 초기화: 관리자(구글 로그인한 본인)만 문서를 지워 기본 목록으로 되돌림
       allow delete: if listId in ['menus', 'places']
         && request.auth != null
-        && request.auth.uid == 'OWNER_UID_HERE';
+        && request.auth.uid == '1wuDcDT4LGc3uBLmBRqUkDsuxgx2';
     }
 
     // 그 밖의 모든 경로는 차단
