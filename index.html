@@ -51,6 +51,10 @@ h1{font-family:var(--display);font-weight:400;font-size:28px;margin:0;letter-spa
 .btn:focus-visible,.tabs button:focus-visible,input:focus-visible,select:focus-visible,.x:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
 .btn:disabled{opacity:.5;cursor:default}
 .note{font-size:12.5px;color:var(--muted);margin:0}
+.admin{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12.5px;color:var(--muted)}
+.linkbtn{font:inherit;border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0}
+.linkbtn:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
+.admin code{background:var(--sunk);padding:1px 6px;border-radius:6px;font-size:12px;word-break:break-all}
 .toast{font-size:13px;color:var(--ok);min-height:1.3em;margin:0}
 section.list{display:flex;flex-direction:column;gap:12px}
 .list-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -154,12 +158,14 @@ ul.items .x{width:26px;height:26px;font-size:15px}
   </section>
 
   <p class="note" id="syncNote">목록 불러오는 중…</p>
+  <div class="admin" id="adminBar"></div>
 </div>
 
 <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=a7d3b1030c704ea93971f3c78ee4829b&libraries=services&autoload=false"></script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getFirestore,doc,onSnapshot,setDoc,deleteDoc} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 const DAYS=["일","월","화","수","목","금","토"];
 const DEFAULT_MENUS=`가츠동 간장게장 간장계란밥 간장비빔국수 갈비탕 갈치조림 감바스·알·아히요 감자탕 계란말이 계란찜 고등어구이 고양이똥커피 골뱅이소면 곱창전골 굶어 김밥에·라면 김치찌개 김치찜 나시고렝 낙지볶음 내장탕 냉면 뇨끼 뉴욕핫도그 닭갈비 닭곰탕 닭볶음탕 닭칼국수 대패삼겹덮밥 도가니탕 돈까스 동태탕 동파육 돼지국밥 두부김치 들기름막국수 들깨칼국수 떡국 떡볶이 뚝배기불고기 라멘 라자냐 로코모코 마라탕 마제소바 마파두부 막국수 만두 매운·갈비찜 메밀전병 명태찜 모밀소바 묵사발 물냉면 방울토마토라면 백순대볶음 봄동비빔밥 봉구스밥버거 부대찌개 불고기 불닭발 비냉면 비빔밥 뼈해장국 삼겹살 샌드위치 샐러드파스타 샤브샤브 설렁탕 소불고기전골 순대국밥 순두부찌개 숯불닭갈비 쌀국수 쌈밥 아구찜 알밥 야채곱창 양꼬치 에그인헬 에스카르고 연포탕 오뎅탕 오므라이스 오믈렛 오야코동 오징어볶음 우동 우렁쌈밥 육개장 육회비빔밥 이삭토스트 잔치국수 잡채밥 제육볶음 조개구이 짜장면 짬뽕 쫄면 쭈꾸미삼겹살 찜닭 차돌된장찌개 차슈덮밥 참치마요 철판볶음밥 초계국수 치킨마요 카레 코다리찜 콩국수 퀘사디아 크림스파게티 클램차우더·수프 타코 탕수육 텐동 토마토와사비 파니니샌드위치 파스타 파전에·동동주 팬케이크 편백찜 포케 피자 해물계란탕 해물찜 해물탕 해신탕 햄부기 홍합그라탕 회냉면 회덮밥`.split(" ").map(s=>s.replace(/·/g," "));
 // [name, category, address, distance m, closed weekday (0=일) or null]
@@ -257,6 +263,7 @@ function renderPlaces(){
 }
 function renderReset(kind){
   const box=$(kind==="menu"?"menuReset":"placeReset");
+  if(!state.isAdmin){box.innerHTML="";return}
   const isDefault=kind==="menu"?state.menus===null:state.places===null;
   if(state.confirming===kind){
     box.innerHTML=`<div class="confirm">${kind==="menu"?"메뉴판":"맛집 목록"}을 처음 설정으로 되돌릴까요? 추가·삭제한 내용이 모두 사라져요.
@@ -283,7 +290,7 @@ function save(kind,items){
   if(!state.db)return;
   const ref=state.refs[kind];
   queues[kind]=(queues[kind]||Promise.resolve()).then(()=>items===null?deleteDoc(ref):setDoc(ref,{items})).catch(e=>{
-    if(e&&e.code==="permission-denied")toast("저장이 거부됐어요. 목록이 너무 길거나 형식이 맞지 않아요");
+    if(e&&e.code==="permission-denied")toast(items===null?"초기화는 관리자만 할 수 있어요":"저장이 거부됐어요. 목록이 너무 길거나 형식이 맞지 않아요");
     else toast("저장하지 못했어요. 잠시 후 다시 해보세요");
   });
 }
@@ -291,7 +298,8 @@ function applyEdit(){for(const el of document.querySelectorAll("[data-edit]"))el
 
 function initStore(){
   try{
-    const db=getFirestore(initializeApp(firebaseConfig));
+    const app=initializeApp(firebaseConfig);initAuth(app);
+    const db=getFirestore(app);
     state.db=db;state.refs.menu=doc(db,"lists","menus");state.refs.place=doc(db,"lists","places");
     const onErr=()=>{$("syncNote").textContent="공유 목록과 연결이 끊겼어요. 새로고침해 주세요."};
     onSnapshot(state.refs.menu,s=>{state.menus=s.exists()?cleanMenus(s.data().items):null;renderAll()},onErr);
@@ -301,6 +309,29 @@ function initStore(){
     $("syncNote").textContent="공유 목록에 연결하지 못해서, 고친 내용이 이 화면에만 남아요.";
   }
 }
+
+// ---- admin (only the owner can reset) ----
+const OWNER_UID="OWNER_UID_HERE";
+function renderAdmin(){
+  const bar=$("adminBar"),u=state.user;
+  if(!state.auth){bar.innerHTML="";return}
+  if(!u){bar.innerHTML=`<button class="linkbtn" id="adminIn">관리자 로그인</button>`;return}
+  if(state.isAdmin){bar.innerHTML=`<span>관리자로 로그인했어요. 초기화 버튼이 보여요.</span><button class="linkbtn" id="adminOut">로그아웃</button>`;return}
+  bar.innerHTML=`<span>이 계정은 관리자가 아니에요. 계정 ID: <code>${esc(u.uid)}</code></span><button class="linkbtn" id="adminCopy">ID 복사</button><button class="linkbtn" id="adminOut">로그아웃</button>`;
+}
+function initAuth(app){
+  try{
+    state.auth=getAuth(app);
+    onAuthStateChanged(state.auth,u=>{state.user=u;state.isAdmin=!!u&&u.uid===OWNER_UID;state.confirming=null;renderAdmin();renderReset("menu");renderReset("place")});
+  }catch(e){state.auth=null}
+  renderAdmin();
+}
+$("adminBar").addEventListener("click",async e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.id==="adminIn"){try{await signInWithPopup(state.auth,new GoogleAuthProvider())}catch(err){if(err?.code!=="auth/popup-closed-by-user"&&err?.code!=="auth/cancelled-popup-request")toast("로그인하지 못했어요. 팝업 차단을 확인해주세요")}}
+  else if(t.id==="adminOut"){await signOut(state.auth);toast("로그아웃했어요")}
+  else if(t.id==="adminCopy"){try{await navigator.clipboard.writeText(state.user.uid);toast("계정 ID를 복사했어요")}catch(err){toast("복사가 막혀 있어요. ID를 길게 눌러 복사하세요")}}
+});
 
 // ---- place search (Kakao Local) ----
 const OFFICE_ADDR="경기 성남시 수정구 위례서일로 6";

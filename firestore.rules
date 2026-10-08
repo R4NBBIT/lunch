@@ -12,8 +12,10 @@ service cloud.firestore {
         && request.resource.data.items is list
         && request.resource.data.items.size() <= 300;
 
-      // 초기화: 문서를 지우면 기본 목록으로 돌아감
-      allow delete: if listId in ['menus', 'places'];
+      // 초기화: 관리자(구글 로그인한 본인)만 문서를 지워 기본 목록으로 되돌림
+      allow delete: if listId in ['menus', 'places']
+        && request.auth != null
+        && request.auth.uid == 'OWNER_UID_HERE';
     }
 
     // 그 밖의 모든 경로는 차단
