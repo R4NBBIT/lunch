@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="로이드케이 점심 메뉴·맛집 뽑기">
+<title>로이드케이 점메추</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+html{-webkit-text-size-adjust:100%}
+body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+/* Layout: one narrow column — tab switch, a big "today's pick" plate, then the shared list you edit together. */
+:root{
+  --bg:#F3F5F1; --surface:#FFFFFF; --sunk:#E8ECE4; --fg:#1E2722; --muted:#5E6A63; --line:#D5DCD2;
+  --yolk:#F2B705; --yolk-ink:#3A2C00; --yolk-soft:#FFF1C2; --danger:#C2412D; --ok:#2F7A4F;
+  --display:"Jua","IBM Plex Sans KR",system-ui,sans-serif;
+  --body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#151A17; --surface:#1E2521; --sunk:#262E29; --fg:#ECF0EA; --muted:#9AA69F; --line:#323B35;
+  --yolk:#F5C230; --yolk-ink:#2A2000; --yolk-soft:#3A3115; --danger:#EF7A66; --ok:#6CC28F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151A17; --surface:#1E2521; --sunk:#262E29; --fg:#ECF0EA; --muted:#9AA69F; --line:#323B35;
+  --yolk:#F5C230; --yolk-ink:#2A2000; --yolk-soft:#3A3115; --danger:#EF7A66; --ok:#6CC28F; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;align-items:center;gap:10px}
+.egg{width:34px;height:40px;flex:none}
+h1{font-family:var(--display);font-weight:400;font-size:28px;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px;margin:0}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:999px;padding:4px}
+.tabs button{font:inherit;font-weight:700;border:0;background:transparent;color:var(--muted);padding:10px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgb(0 0 0 / .12)}
+.plate{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:24px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.plate .label{font-size:12px;letter-spacing:.08em;color:var(--muted)}
+.pick{font-family:var(--display);font-size:clamp(30px,9vw,44px);line-height:1.15;margin:0;text-wrap:balance;min-height:1.2em;word-break:keep-all}
+.pick.idle{color:var(--muted);font-size:22px}
+.meta{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted);min-height:0}
+.meta a{color:var(--fg);font-weight:500}
+.chip{display:inline-block;background:var(--yolk-soft);color:var(--fg);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.btn{font:inherit;font-weight:700;border-radius:12px;padding:12px 18px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.btn.main{background:var(--yolk);color:var(--yolk-ink);border-color:transparent;font-size:17px;padding:14px 28px}
+.btn.small{padding:8px 12px;font-size:13px;font-weight:500}
+.btn.danger{color:var(--danger)}
+.btn:focus-visible,.tabs button:focus-visible,input:focus-visible,select:focus-visible,.x:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
+.btn:disabled{opacity:.5;cursor:default}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.toast{font-size:13px;color:var(--ok);min-height:1.3em;margin:0}
+section.list{display:flex;flex-direction:column;gap:12px}
+.list-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+h2{font-family:var(--display);font-weight:400;font-size:21px;margin:0}
+.count{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+form.add{display:flex;flex-wrap:wrap;gap:8px}
+input,select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+form.add input[name="name"]{flex:2 1 160px}
+form.add .opt{flex:1 1 110px}
+.filter{width:100%}
+ul.items{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+ul.items li{display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 4px 4px 12px;font-size:14px}
+ul.places{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+ul.places li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 8px 10px 14px;border-top:1px solid var(--line);align-items:center}
+ul.places li:first-child{border-top:0}
+ul.places li.off{opacity:.55}
+.pname{font-weight:700;min-width:0}
+.pname a{color:inherit;text-decoration:none}
+.pname a:hover{text-decoration:underline}
+.pinfo{grid-column:1;font-size:12.5px;color:var(--muted);min-width:0}
+.x{grid-row:1 / span 2;grid-column:2;font:inherit;border:0;background:transparent;color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1}
+ul.items .x{width:26px;height:26px;font-size:15px}
+.x:hover{background:var(--sunk);color:var(--danger)}
+.reset{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;padding-top:4px}
+.confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--yolk-soft);border-radius:12px;padding:10px 12px;font-size:13.5px}
+.empty{color:var(--muted);font-size:14px;padding:12px 0}
+@media (prefers-reduced-motion: no-preference){.pick.pop{animation:pop .35s ease-out}@keyframes pop{0%{transform:scale(.9);opacity:.3}100%{transform:none;opacity:1}}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="egg" viewBox="0 0 34 40" aria-hidden="true"><ellipse cx="11" cy="9" rx="5.5" ry="7.5" fill="var(--yolk)"/><rect x="9.6" y="15" width="2.8" height="23" rx="1.4" fill="var(--yolk)"/><rect x="20" y="2" width="2.6" height="36" rx="1.3" fill="var(--fg)" transform="rotate(-4 21 20)"/><rect x="26" y="2" width="2.6" height="36" rx="1.3" fill="var(--fg)" transform="rotate(4 27 20)"/></svg>
+    <div>
+      <h1>로이드케이 점메추</h1>
+      <p class="sub">오늘 점심 고민 해결소 · 목록은 같이 고쳐요</p>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-menu" aria-selected="true" data-tab="menu">메뉴 추천</button>
+    <button role="tab" id="tab-place" aria-selected="false" data-tab="place">맛집 추천</button>
+  </div>
+
+  <div class="plate" aria-live="polite">
+    <span class="label" id="plateLabel">오늘의 메뉴는</span>
+    <p class="pick idle" id="pick">버튼을 눌러 뽑아보세요</p>
+    <div class="meta" id="meta"></div>
+    <div class="row">
+      <button class="btn main" id="draw">🍽️ 뽑기</button>
+      <button class="btn" id="copy" disabled>복사</button>
+    </div>
+    <p class="note" id="offNote" hidden></p>
+    <p class="toast" id="toast"></p>
+  </div>
+
+  <section class="list" id="menuSec">
+    <div class="list-head"><h2>메뉴판</h2><span class="count" id="menuCount"></span></div>
+    <form class="add" id="menuForm" data-edit>
+      <input id="menuName" name="name" placeholder="메뉴 이름 (예: 김치볶음밥)" maxlength="40" autocomplete="off">
+      <button class="btn" type="submit">추가</button>
+    </form>
+    <input class="filter" id="menuFilter" placeholder="메뉴 찾기" autocomplete="off">
+    <ul class="items" id="menuList"></ul>
+    <div class="reset" data-edit id="menuReset"></div>
+  </section>
+
+  <section class="list" id="placeSec" hidden>
+    <div class="list-head"><h2>회사 근처 맛집</h2><span class="count" id="placeCount"></span></div>
+    <form class="add" id="placeForm" data-edit>
+      <input id="placeName" name="name" placeholder="가게 이름" maxlength="40" autocomplete="off">
+      <input id="placeCat" class="opt" placeholder="종류 (예: 한식)" maxlength="20" autocomplete="off">
+      <input id="placeAddr" class="opt" placeholder="주소 (예: 창곡동 551)" maxlength="60" autocomplete="off">
+      <select id="placeOff" class="opt" aria-label="휴무일">
+        <option value="">휴무일 없음</option>
+        <option value="1">월요일 휴무</option><option value="2">화요일 휴무</option><option value="3">수요일 휴무</option>
+        <option value="4">목요일 휴무</option><option value="5">금요일 휴무</option><option value="6">토요일 휴무</option><option value="0">일요일 휴무</option>
+      </select>
+      <button class="btn" type="submit">추가</button>
+    </form>
+    <input class="filter" id="placeFilter" placeholder="가게·종류 찾기" autocomplete="off">
+    <ul class="places" id="placeList"></ul>
+    <div class="reset" data-edit id="placeReset"></div>
+  </section>
+
+  <p class="note" id="syncNote">목록 불러오는 중…</p>
+</div>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getFirestore,doc,onSnapshot,setDoc,deleteDoc} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const DAYS=["일","월","화","수","목","금","토"];
+const DEFAULT_MENUS=`가츠동 간장게장 간장계란밥 간장비빔국수 갈비탕 갈치조림 감바스·알·아히요 감자탕 계란말이 계란찜 고등어구이 고양이똥커피 골뱅이소면 곱창전골 굶어 김밥에·라면 김치찌개 김치찜 나시고렝 낙지볶음 내장탕 냉면 뇨끼 뉴욕핫도그 닭갈비 닭곰탕 닭볶음탕 닭칼국수 대패삼겹덮밥 도가니탕 돈까스 동태탕 동파육 돼지국밥 두부김치 들기름막국수 들깨칼국수 떡국 떡볶이 뚝배기불고기 라멘 라자냐 로코모코 마라탕 마제소바 마파두부 막국수 만두 매운·갈비찜 메밀전병 명태찜 모밀소바 묵사발 물냉면 방울토마토라면 백순대볶음 봄동비빔밥 봉구스밥버거 부대찌개 불고기 불닭발 비냉면 비빔밥 뼈해장국 삼겹살 샌드위치 샐러드파스타 샤브샤브 설렁탕 소불고기전골 순대국밥 순두부찌개 숯불닭갈비 쌀국수 쌈밥 아구찜 알밥 야채곱창 양꼬치 에그인헬 에스카르고 연포탕 오뎅탕 오므라이스 오믈렛 오야코동 오징어볶음 우동 우렁쌈밥 육개장 육회비빔밥 이삭토스트 잔치국수 잡채밥 제육볶음 조개구이 짜장면 짬뽕 쫄면 쭈꾸미삼겹살 찜닭 차돌된장찌개 차슈덮밥 참치마요 철판볶음밥 초계국수 치킨마요 카레 코다리찜 콩국수 퀘사디아 크림스파게티 클램차우더·수프 타코 탕수육 텐동 토마토와사비 파니니샌드위치 파스타 파전에·동동주 팬케이크 편백찜 포케 피자 해물계란탕 해물찜 해물탕 해신탕 햄부기 홍합그라탕 회냉면 회덮밥`.split(" ").map(s=>s.replace(/·/g," "));
+// [name, category, address, distance m, closed weekday (0=일) or null]
+const DEFAULT_PLACES=[
+["보리지미","보리밥","창곡동 559",18,null],["우리들밥상 구월","한식","창곡동 559",40,null],["미도냉삼 위례점","돼지고기구이","창곡동 559",53,null],
+["올리앤 위례점","이탈리아음식","창곡동 558",84,null],["박가네명가순두부 위례점","두부요리","창곡동 558-7",85,null],["삼화식당위례본점","돼지고기구이","창곡동 551",89,null],
+["기훈한방누룽지삼계탕","백숙,삼계탕","창곡동 551",118,null],["우봉집 위례","한식","창곡동 551",121,null],["위례쭈꾸미","주꾸미요리","창곡동 558",125,3],
+["우리 수육보쌈족발","족발,보쌈","창곡동 550",125,null],["소정한식뷔페","한식뷔페","창곡동 557",136,null],["안면도바지락칼국수","칼국수,만두","창곡동 558",142,null],
+["더잘난쭈꾸미","한식","창곡동 551",144,1],["홀리오","양식","창곡동 550",152,null],["배부장찌개 위례신도시점","찌개,전골","창곡동 551",153,null],
+["여제갈비 본점","한식","창곡동 552",158,null],["월수금통돼지 위례점","돼지고기구이","창곡동 558",177,null],["카츠오모이 위례점","돈가스","창곡동 554",185,null],
+["청춘가","중식당","창곡동 552",195,2],["은호스시","초밥,롤","창곡동 555",228,null],["오토김밥 남위례점","분식","창곡동 559",237,null],
+["송탄이서방부대찌개","찌개,전골","창곡동 555",250,null],["냐벱인다낭","베트남음식","창곡동 547",255,null],["팻보이버거 위례점","햄버거","창곡동 547",266,null],
+["김동희동태탕 위례점","해물,생선요리","창곡동 547",279,null],["나미루라멘 남위례점","일본식라면","창곡동 562",288,null],["기분좋은식당","한식","창곡동 562",291,null],
+["미돈","돈가스","창곡동 562",292,null],["도이티 운남쌀국수 남위례역점","아시아음식","창곡동 562",297,null],["플랩잭팬트리 위례점","브런치","창곡동 539",332,null],
+["삼호손칼국수","칼국수,만두","창곡동 562",338,1],["개성손만두요리전문점 위례점","칼국수,만두","창곡동 562",338,null],["장수본가해장국 위례점","해장국 · 24시간","창곡동",344,null],
+["스시마케또 위례점","초밥,롤","창곡동 561",350,null],["항아리보쌈 위례점","족발,보쌈","창곡동 539",353,null],["더빛남 남위례역점","베트남음식","창곡동 561",360,null],
+["마초야 위례점","일식당","창곡동 545",363,null],["순대실록 위례엘포트점","순대,순댓국","창곡동 559",382,null],["한성돈까스 위례점","돈가스","창곡동 563",496,null]
+].map(([name,cat,addr,dist,off])=>({name,cat,addr:"경기도 성남시 수정구 "+addr,dist,off}));
+
+const state={tab:"menu",menus:null,places:null,last:{menu:null,place:null},current:null,canEdit:true,db:null,refs:{},confirming:null};
+const $=id=>document.getElementById(id);
+const menus=()=>state.menus??DEFAULT_MENUS;
+const places=()=>state.places??DEFAULT_PLACES;
+function todayKST(){const d=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Seoul",weekday:"short"}).format(new Date());return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(d)}
+function mapLink(name){const q=/위례/.test(name)?name:name+" 위례";return "https://map.naver.com/p/search/"+encodeURIComponent(q)}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+let toastT;function toast(msg){$("toast").textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>$("toast").textContent="",2600)}
+
+function setTab(t){
+  state.tab=t;state.current=null;
+  for(const b of document.querySelectorAll(".tabs button"))b.setAttribute("aria-selected",String(b.dataset.tab===t));
+  $("menuSec").hidden=t!=="menu";$("placeSec").hidden=t!=="place";
+  $("plateLabel").textContent=t==="menu"?"오늘의 메뉴는":"오늘 갈 곳은";
+  renderPlate();renderOffNote();
+  try{localStorage.setItem("tab",t)}catch(e){}
+}
+
+function draw(){
+  const t=state.tab;let pool;
+  if(t==="menu")pool=menus();
+  else{const d=todayKST();pool=places().filter(p=>p.off!==d)}
+  if(!pool.length){state.current=null;renderPlate("목록이 비어 있어요");return}
+  let pick;const last=state.last[t];
+  for(let i=0;i<8;i++){pick=pool[Math.floor(Math.random()*pool.length)];if(pool.length<2||(t==="menu"?pick!==last:pick.name!==last?.name))break}
+  state.last[t]=pick;state.current=pick;renderPlate();
+  const el=$("pick");el.classList.remove("pop");void el.offsetWidth;el.classList.add("pop");
+  $("draw").textContent="🍽️ 다시 뽑기";
+}
+
+function renderPlate(emptyMsg){
+  const el=$("pick"),meta=$("meta"),c=state.current;
+  $("copy").disabled=!c;
+  if(!c){el.className="pick idle";el.textContent=emptyMsg||"버튼을 눌러 뽑아보세요";meta.innerHTML="";$("draw").textContent="🍽️ 뽑기";return}
+  el.className="pick";
+  if(state.tab==="menu"){el.textContent=c;meta.innerHTML=""}
+  else{
+    el.textContent=c.name;
+    meta.innerHTML=`<div>${c.cat?`<span class="chip">${esc(c.cat)}</span> `:""}${c.dist?`걸어서 ${c.dist}m`:""}</div>
+      <div>${esc(c.addr||"")}</div>
+      <div><a href="${mapLink(c.name)}" target="_blank" rel="noopener">네이버 지도에서 보기 ↗</a></div>`;
+  }
+}
+function renderOffNote(){
+  const n=$("offNote");if(state.tab!=="place"){n.hidden=true;return}
+  const d=todayKST(),off=places().filter(p=>p.off===d);
+  n.hidden=!off.length;n.textContent=`오늘(${DAYS[d]}) 휴무라 빠진 곳: ${off.map(p=>p.name).join(", ")}`;
+}
+
+async function copyPick(){
+  const c=state.current;if(!c)return;
+  const text=state.tab==="menu"?`🍽️ 오늘 점심 메뉴: ${c}`:`🍽️ 오늘 점심은 ${c.name}!${c.cat?` (${c.cat})`:""}\n📍 ${c.addr||""}\n${mapLink(c.name)}`;
+  try{await navigator.clipboard.writeText(text);toast("복사됐어요")}
+  catch(e){const r=document.createRange();r.selectNodeContents($("plateLabel").parentElement);const s=getSelection();s.removeAllRanges();s.addRange(r);toast("복사가 막혀 있어서 선택만 해뒀어요. 길게 눌러 복사하세요")}
+}
+
+function renderMenus(){
+  const all=menus(),q=$("menuFilter").value.trim();
+  const shown=q?all.filter(m=>m.includes(q)):all;
+  $("menuCount").textContent=`${all.length}개${state.menus===null?" · 기본 목록":""}`;
+  $("menuList").innerHTML=shown.length?shown.map(m=>`<li>${esc(m)}${state.canEdit?`<button class="x" data-del-menu="${esc(m)}" aria-label="${esc(m)} 삭제">×</button>`:""}</li>`).join(""):`<li class="empty" style="border:0;background:none">${q?"찾는 메뉴가 없어요":"메뉴가 비어 있어요. 위에서 추가해보세요"}</li>`;
+  renderReset("menu");
+}
+function renderPlaces(){
+  const all=[...places()].sort((a,b)=>(a.dist??9999)-(b.dist??9999)),q=$("placeFilter").value.trim(),d=todayKST();
+  const shown=q?all.filter(p=>(p.name+" "+(p.cat||"")).includes(q)):all;
+  $("placeCount").textContent=`${all.length}곳${state.places===null?" · 기본 목록":""}`;
+  $("placeList").innerHTML=shown.length?shown.map(p=>{
+    const off=p.off!=null&&p.off!=="";const isOff=off&&p.off===d;
+    return `<li class="${isOff?"off":""}"><span class="pname"><a href="${mapLink(p.name)}" target="_blank" rel="noopener">${esc(p.name)}</a></span>
+    <span class="pinfo">${[p.cat,p.dist?p.dist+"m":"",off?DAYS[p.off]+"요일 휴무"+(isOff?" (오늘)":""):"",p.addr].filter(Boolean).map(esc).join(" · ")}</span>
+    ${state.canEdit?`<button class="x" data-del-place="${esc(p.name)}" aria-label="${esc(p.name)} 삭제">×</button>`:""}</li>`}).join(""):`<li class="empty">${q?"찾는 가게가 없어요":"가게가 비어 있어요. 위에서 추가해보세요"}</li>`;
+  renderReset("place");renderOffNote();
+}
+function renderReset(kind){
+  const box=$(kind==="menu"?"menuReset":"placeReset");
+  const isDefault=kind==="menu"?state.menus===null:state.places===null;
+  if(state.confirming===kind){
+    box.innerHTML=`<div class="confirm">${kind==="menu"?"메뉴판":"맛집 목록"}을 처음 설정으로 되돌릴까요? 추가·삭제한 내용이 모두 사라져요.
+      <button class="btn small danger" data-reset-yes="${kind}">되돌리기</button><button class="btn small" data-reset-no>취소</button></div>`;
+  }else box.innerHTML=`<button class="btn small" data-reset="${kind}" ${isDefault?"disabled":""}>초기화</button>`;
+}
+function renderAll(){renderMenus();renderPlaces();if(state.current&&state.tab==="place")renderPlate()}
+
+// ---- shared store (Firebase Firestore) ----
+const firebaseConfig={
+  apiKey:"AIzaSyB9kuHlUu64elcBdzUsrydIWhj7EIpujs8",
+  authDomain:"lloydk-lunch.firebaseapp.com",
+  projectId:"lloydk-lunch",
+  storageBucket:"lloydk-lunch.firebasestorage.app",
+  messagingSenderId:"713270883032",
+  appId:"1:713270883032:web:da58cb0913e33d9ca2ddad"
+};
+const cleanMenus=v=>Array.isArray(v)?v.filter(m=>typeof m==="string"&&m.trim()):null;
+const cleanPlaces=v=>Array.isArray(v)?v.filter(p=>p&&typeof p.name==="string"&&p.name.trim()):null;
+const queues={};
+function save(kind,items){
+  if(kind==="menu")state.menus=items;else state.places=items;
+  renderAll();
+  if(!state.db)return;
+  const ref=state.refs[kind];
+  queues[kind]=(queues[kind]||Promise.resolve()).then(()=>items===null?deleteDoc(ref):setDoc(ref,{items})).catch(e=>{
+    if(e&&e.code==="permission-denied")toast("저장이 거부됐어요. 목록이 너무 길거나 형식이 맞지 않아요");
+    else toast("저장하지 못했어요. 잠시 후 다시 해보세요");
+  });
+}
+function applyEdit(){for(const el of document.querySelectorAll("[data-edit]"))el.hidden=!state.canEdit;renderAll()}
+
+function initStore(){
+  try{
+    const db=getFirestore(initializeApp(firebaseConfig));
+    state.db=db;state.refs.menu=doc(db,"lists","menus");state.refs.place=doc(db,"lists","places");
+    const onErr=()=>{$("syncNote").textContent="공유 목록과 연결이 끊겼어요. 새로고침해 주세요."};
+    onSnapshot(state.refs.menu,s=>{state.menus=s.exists()?cleanMenus(s.data().items):null;renderAll()},onErr);
+    onSnapshot(state.refs.place,s=>{state.places=s.exists()?cleanPlaces(s.data().items):null;renderAll()},onErr);
+    $("syncNote").textContent="목록은 이 링크를 연 모두가 함께 써요. 누가 고치면 바로 반영돼요.";
+  }catch(e){
+    $("syncNote").textContent="공유 목록에 연결하지 못해서, 고친 내용이 이 화면에만 남아요.";
+  }
+}
+
+// ---- events ----
+document.querySelector(".tabs").addEventListener("click",e=>{const t=e.target.closest("[data-tab]");if(t)setTab(t.dataset.tab)});
+$("draw").addEventListener("click",draw);
+$("copy").addEventListener("click",copyPick);
+$("menuFilter").addEventListener("input",renderMenus);
+$("placeFilter").addEventListener("input",renderPlaces);
+$("menuForm").addEventListener("submit",e=>{
+  e.preventDefault();const v=$("menuName").value.trim();if(!v)return;
+  if(menus().includes(v)){toast("이미 있는 메뉴예요");return}
+  save("menu",[...menus(),v].sort((a,b)=>a.localeCompare(b,"ko")));$("menuName").value="";toast(`'${v}' 추가했어요`);
+});
+$("placeForm").addEventListener("submit",e=>{
+  e.preventDefault();const name=$("placeName").value.trim();if(!name)return;
+  if(places().some(p=>p.name===name)){toast("이미 있는 가게예요");return}
+  const offV=$("placeOff").value;
+  save("place",[...places(),{name,cat:$("placeCat").value.trim(),addr:$("placeAddr").value.trim(),dist:null,off:offV===""?null:Number(offV)}]);
+  for(const id of ["placeName","placeCat","placeAddr"])$(id).value="";$("placeOff").value="";toast(`'${name}' 추가했어요`);
+});
+document.addEventListener("click",e=>{
+  const dm=e.target.closest("[data-del-menu]");if(dm){const v=dm.dataset.delMenu;save("menu",menus().filter(m=>m!==v));toast(`'${v}' 뺐어요`);return}
+  const dp=e.target.closest("[data-del-place]");if(dp){const v=dp.dataset.delPlace;save("place",places().filter(p=>p.name!==v));if(state.current?.name===v){state.current=null;renderPlate()}toast(`'${v}' 뺐어요`);return}
+  const r=e.target.closest("[data-reset]");if(r){state.confirming=r.dataset.reset;renderReset(r.dataset.reset);return}
+  const ry=e.target.closest("[data-reset-yes]");if(ry){const k=ry.dataset.resetYes;state.confirming=null;save(k,null);toast("처음 설정으로 되돌렸어요");return}
+  if(e.target.closest("[data-reset-no]")){const k=state.confirming;state.confirming=null;renderReset(k)}
+});
+
+let startTab="menu";try{const t=localStorage.getItem("tab");if(t==="place")startTab=t}catch(e){}
+setTab(startTab);renderAll();initStore();
+</script>
+</body>
+</html>
