@@ -1,8 +1,8 @@
-# 🍽️ 로이드케이 점메추
+# 🍽️ 점메추
 
-로이드케이 동료들과 함께 쓰는 점심 메뉴·맛집 뽑기 페이지입니다.
+동료들과 함께 쓰는 점심 메뉴·맛집 뽑기 페이지입니다.
 
-👉 https://r4nbbit.github.io/lloydk_lunch/
+👉 https://r4nbbit.github.io/lunch/
 
 ---
 
@@ -19,7 +19,7 @@
 ## 📂 구조
 
 ```
-lloydk_lunch/
+lunch/
 ├─ index.html        # 페이지 전체 (화면, 기본 목록, Firebase 연결)
 ├─ firestore.rules   # Firestore 보안 규칙 (콘솔에 붙여넣는 용도)
 └─ README.md
