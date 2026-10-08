@@ -139,18 +139,10 @@ ul.items .x{width:26px;height:26px;font-size:15px}
     <form class="add" id="placeForm" data-edit>
       <div class="searchrow">
         <input id="placeName" name="name" placeholder="가게 이름 (예: 미돈)" maxlength="40" autocomplete="off">
-        <button class="btn" type="button" id="placeSearch" hidden>검색</button>
+        <button class="btn" type="button" id="placeSearch" disabled>검색</button>
       </div>
       <ul class="results" id="placeResults" hidden></ul>
-      <p class="hint" id="placeHint">가게 이름을 넣고 검색하면 종류·주소·거리가 자동으로 채워져요.</p>
-      <input id="placeCat" class="opt" placeholder="종류 (예: 한식)" maxlength="20" autocomplete="off">
-      <input id="placeAddr" class="opt" placeholder="주소 (예: 창곡동 551)" maxlength="60" autocomplete="off">
-      <select id="placeOff" class="opt" aria-label="휴무일">
-        <option value="">휴무일 없음</option>
-        <option value="1">월요일 휴무</option><option value="2">화요일 휴무</option><option value="3">수요일 휴무</option>
-        <option value="4">목요일 휴무</option><option value="5">금요일 휴무</option><option value="6">토요일 휴무</option><option value="0">일요일 휴무</option>
-      </select>
-      <button class="btn" type="submit">추가</button>
+      <p class="hint" id="placeHint">가게 이름을 넣고 검색한 뒤, 맞는 가게를 누르면 바로 추가돼요.</p>
     </form>
     <input class="filter" id="placeFilter" placeholder="가게·종류 찾기" autocomplete="off">
     <ul class="places" id="placeList"></ul>
@@ -338,11 +330,11 @@ const OFFICE_ADDR="경기 성남시 수정구 위례서일로 6";
 const kk={places:null,center:null};
 function initKakao(){
   const k=window.kakao;
-  if(!k||!k.maps||!k.maps.load){$("placeHint").textContent="지금은 가게 검색을 쓸 수 없어서 직접 입력해야 해요.";return}
+  if(!k||!k.maps||!k.maps.load){$("placeHint").textContent="지금은 가게 검색에 연결되지 않아서 가게를 추가할 수 없어요.";return}
   k.maps.load(()=>{
     kk.places=new k.maps.services.Places();
     new k.maps.services.Geocoder().addressSearch(OFFICE_ADDR,(r,st)=>{if(st===k.maps.services.Status.OK&&r[0])kk.center=new k.maps.LatLng(r[0].y,r[0].x)});
-    $("placeSearch").hidden=false;
+    $("placeSearch").disabled=false;
   });
 }
 function hideResults(){$("placeResults").hidden=true;$("placeResults").innerHTML=""}
@@ -364,13 +356,14 @@ function searchPlace(){
 }
 function pickResult(i){
   const d=lastResults[i];if(!d)return;
-  $("placeName").value=d.place_name;$("placeCat").value=catOf(d.category_name);$("placeAddr").value=d.road_address_name||d.address_name||"";
-  state.pick={name:d.place_name,url:d.place_url||"",dist:d.distance?Number(d.distance):null};
-  hideResults();$("placeOff").focus();toast("휴무일만 고르고 추가를 눌러주세요");
+  const name=d.place_name;
+  if(places().some(p=>p.name===name||(d.place_url&&p.url===d.place_url))){toast("이미 있는 가게예요");return}
+  const item={name,cat:catOf(d.category_name),addr:d.road_address_name||d.address_name||"",dist:d.distance?Number(d.distance):null,off:null};
+  if(d.place_url)item.url=d.place_url;
+  save("place",[...places(),item]);
+  $("placeName").value="";hideResults();toast(`'${name}' 추가했어요`);
 }
 $("placeSearch").addEventListener("click",searchPlace);
-$("placeName").addEventListener("keydown",e=>{if(e.key==="Enter"&&kk.places&&!e.isComposing){e.preventDefault();searchPlace()}});
-$("placeName").addEventListener("input",()=>{if(state.pick&&state.pick.name!==$("placeName").value.trim())state.pick=null});
 $("placeResults").addEventListener("click",e=>{const b=e.target.closest("[data-pick]");if(b)pickResult(Number(b.dataset.pick))});
 
 // ---- events ----
@@ -384,16 +377,7 @@ $("menuForm").addEventListener("submit",e=>{
   if(menus().includes(v)){toast("이미 있는 메뉴예요");return}
   save("menu",[...menus(),v].sort((a,b)=>a.localeCompare(b,"ko")));$("menuName").value="";toast(`'${v}' 추가했어요`);
 });
-$("placeForm").addEventListener("submit",e=>{
-  e.preventDefault();const name=$("placeName").value.trim();if(!name)return;
-  if(places().some(p=>p.name===name)){toast("이미 있는 가게예요");return}
-  const offV=$("placeOff").value;
-  const pk=state.pick&&state.pick.name===name?state.pick:null;
-  const item={name,cat:$("placeCat").value.trim(),addr:$("placeAddr").value.trim(),dist:pk?pk.dist:null,off:offV===""?null:Number(offV)};
-  if(pk&&pk.url)item.url=pk.url;
-  save("place",[...places(),item]);
-  for(const id of ["placeName","placeCat","placeAddr"])$(id).value="";$("placeOff").value="";state.pick=null;hideResults();toast(`'${name}' 추가했어요`);
-});
+$("placeForm").addEventListener("submit",e=>{e.preventDefault();searchPlace()});
 document.addEventListener("click",e=>{
   const dm=e.target.closest("[data-del-menu]");if(dm){const v=dm.dataset.delMenu;save("menu",menus().filter(m=>m!==v));toast(`'${v}' 뺐어요`);return}
   const dp=e.target.closest("[data-del-place]");if(dp){const v=dp.dataset.delPlace;save("place",places().filter(p=>p.name!==v));if(state.current?.name===v){state.current=null;renderPlate()}toast(`'${v}' 뺐어요`);return}
