@@ -330,6 +330,8 @@ $("adminBar").addEventListener("click",async e=>{
 // ---- place search (Kakao Local) ----
 const OFFICE_ADDR="경기 성남시 수정구 위례서일로 6";
 const kk={places:null,center:null};
+const ALLOWED_AREA=/성남시\s*수정구\s*창곡동/;
+const inArea=d=>ALLOWED_AREA.test(d.address_name||"");
 function initKakao(){
   const k=window.kakao;
   if(!k||!k.maps||!k.maps.load){$("placeHint").textContent="지금은 가게 검색에 연결되지 않아서 가게를 추가할 수 없어요.";return}
@@ -350,14 +352,17 @@ function searchPlace(){
   const opt={size:8};
   if(kk.center){opt.location=kk.center;opt.radius=3000;opt.sort=S.SortBy.DISTANCE}
   kk.places.keywordSearch(q,(data,status)=>{
-    if(status===S.Status.ZERO_RESULT){box.innerHTML=`<li class="rmsg">근처에서 찾지 못했어요. 종류·주소를 직접 넣고 추가해도 돼요.</li>`;return}
-    if(status!==S.Status.OK){box.innerHTML=`<li class="rmsg">검색이 안 돼요. 잠시 후 다시 해보거나 직접 입력해주세요.</li>`;return}
+    if(status===S.Status.ZERO_RESULT){box.innerHTML=`<li class="rmsg">창곡동에서 그 가게를 찾지 못했어요. 이름을 다시 확인해주세요.</li>`;return}
+    if(status!==S.Status.OK){box.innerHTML=`<li class="rmsg">검색이 안 돼요. 잠시 후 다시 해주세요.</li>`;return}
+    data=data.filter(inArea);
+    if(!data.length){box.innerHTML=`<li class="rmsg">창곡동에 있는 가게만 추가할 수 있어요. 검색 결과가 모두 다른 동네예요.</li>`;return}
     lastResults=data;
     box.innerHTML=data.map((d,i)=>`<li><button type="button" data-pick="${i}"><span class="rn">${esc(d.place_name)}</span><span class="rd">${d.distance?Number(d.distance).toLocaleString()+"m":""}</span><span class="ra">${esc(catOf(d.category_name))}${d.category_name?" · ":""}${esc(d.road_address_name||d.address_name||"")}</span></button></li>`).join("");
   },opt);
 }
 function pickResult(i){
   const d=lastResults[i];if(!d)return;
+  if(!inArea(d)){toast("창곡동에 있는 가게만 추가할 수 있어요");return}
   const name=d.place_name;
   if(places().some(p=>p.name===name||(d.place_url&&p.url===d.place_url))){toast("이미 있는 가게예요");return}
   const item={name,cat:catOf(d.category_name),addr:d.road_address_name||d.address_name||"",dist:d.distance?Number(d.distance):null,off:null};
