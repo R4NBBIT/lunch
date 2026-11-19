@@ -9,6 +9,14 @@ service cloud.firestore {
         && 'google.com' in request.auth.token.firebase.identities;
     }
 
+    // 관리자: secret/admins 문서의 emails 목록에 있는 구글 계정 (이메일 인증된 계정만)
+    function isAdmin() {
+      return request.auth != null
+        && 'google.com' in request.auth.token.firebase.identities
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in get(/databases/$(database)/documents/secret/admins).data.emails;
+    }
+
     // 식당 프리셋 형식: 이름, 출발 위치, 동, 걸어서 몇 분, 고른 종류, 식당 목록, 뽑기에서 뺀 식당
     function validPreset(d) {
       return d.keys().hasOnly(['name', 'origin', 'dong', 'minutes', 'kinds', 'items', 'skip'])
@@ -36,7 +44,22 @@ service cloud.firestore {
       allow create, update: if isOwner(uid) && pid in ['p1', 'p2', 'p3'] && validPreset(request.resource.data);
     }
 
-    // 그 밖의 모든 경로는 차단
+    // 기본 메뉴판: 누구나 읽고, 관리자만 고치거나 지움 (지우면 코드에 있는 처음 목록으로 돌아감)
+    match /config/menus {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['menus'])
+        && request.resource.data.menus is list
+        && request.resource.data.menus.size() <= 500;
+      allow delete: if isAdmin();
+    }
+
+    // 관리자 확인용 (화면에서 관리자 기능을 보여줄지 판단)
+    match /admin/probe {
+      allow get: if isAdmin();
+    }
+
+    // secret/* 를 포함한 그 밖의 모든 경로는 차단
     match /{document=**} {
       allow read, write: if false;
     }
