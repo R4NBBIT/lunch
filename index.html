@@ -91,6 +91,7 @@ section.list,div.list{display:flex;flex-direction:column;gap:12px}
 input,select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
 form.add{display:flex;gap:8px}
 form.add input{flex:1 1 auto}
+form.add .btn{flex:none;white-space:nowrap}
 .filter{width:100%}
 .callout{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;background:var(--yolk-soft);border-radius:14px;padding:12px 14px}
 .callout p{margin:0;font-size:14px;line-height:1.5;min-width:0;flex:1 1 220px;word-break:keep-all}
@@ -313,6 +314,7 @@ const $=id=>document.getElementById(id);
 const ko=(a,b)=>a.localeCompare(b,"ko");
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function mapLink(name){return "https://map.kakao.com/link/search/"+encodeURIComponent(name)}
+const fmtCat=c=>String(c||"").replace(/\s*·\s*/g," | ");
 const safeUrl=u=>typeof u==="string"&&/^https?:\/\//i.test(u)?u:"";
 const linkOf=p=>safeUrl(p.url)||mapLink(p.name);
 const placeKey=p=>p.url||p.name;
@@ -363,7 +365,7 @@ function renderPlate(){
   el.className="pick";$("draw").textContent="🍽️ 다시 뽑기";
   if(state.tab==="menu"){el.textContent=c;meta.innerHTML="";return}
   el.textContent=c.name;
-  meta.innerHTML=`<div>${c.cat?`<span class="chip">${esc(c.cat)}</span> `:""}${c.dist!=null?`출발 위치에서 ${c.dist}m`:""}</div>
+  meta.innerHTML=`<div>${c.cat?`<span class="chip">${esc(fmtCat(c.cat))}</span> `:""}${c.dist!=null?`출발 위치에서 ${c.dist}m`:""}</div>
     <div>${esc(c.addr||"")}</div>
     <div><a href="${esc(linkOf(c))}" target="_blank" rel="noopener noreferrer">카카오맵에서 보기 ↗</a></div>`;
 }
@@ -438,7 +440,7 @@ function renderPlaces(){
   $("placeCount").textContent=`${all.length}곳 | 뽑기 ${all.filter(i=>!skip.has(placeKey(i))).length}곳`;
   $("placeList").innerHTML=shown.length?shown.map(i=>{const k=placeKey(i),off=skip.has(k);
     return `<li class="${off?"skip":""}"><span class="pname"><a href="${esc(linkOf(i))}" target="_blank" rel="noopener noreferrer">${esc(i.name)}</a></span>
-    <span class="pinfo">${[i.cat,i.dist!=null?i.dist+"m":"",i.addr].filter(Boolean).map(esc).join(" · ")}</span>
+    <span class="pinfo">${[fmtCat(i.cat),i.dist!=null?i.dist+"m":"",i.addr].filter(Boolean).map(esc).join(" | ")}</span>
     <input type="checkbox" class="tog" role="switch" data-skip="${esc(k)}" ${off?"":"checked"} aria-label="${esc(i.name)} 뽑기에 넣기"></li>`}).join("")
     :`<li class="empty">${q?"찾는 식당이 없어요":"고른 종류에 해당하는 식당이 없어요"}</li>`;
 }
@@ -543,7 +545,7 @@ function kindOf(d){
   if(d._code==="CE7")return "카페";
   return String(d.category_name||"").split(">").map(x=>x.trim())[1]||"기타";
 }
-function catOf(c){const p=String(c||"").split(">").map(x=>x.trim()).filter(Boolean);return p.length>1?p.slice(1).join(" · "):(p[0]||"")}
+function catOf(c){const p=String(c||"").split(">").map(x=>x.trim()).filter(Boolean);return p.length>1?p.slice(1).join(" | "):(p[0]||"")}
 async function scanPlaces(origin,minutes,onFound){
   const R=minutes*M_PER_MIN,dLat=R/111320,dLng=R/(111320*Math.cos(origin.lat*Math.PI/180));
   const sw=[origin.lat-dLat,origin.lng-dLng],ne=[origin.lat+dLat,origin.lng+dLng];
