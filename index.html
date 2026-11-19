@@ -73,7 +73,13 @@ h2{font-family:var(--display);font-weight:400;font-size:21px;margin:0}
 .btn:focus-visible,.tabs button:focus-visible,input:focus-visible,select:focus-visible,.x:focus-visible,.linkbtn:focus-visible,.preset:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
 .linkbtn{font:inherit;border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0}
 .note{font-size:12.5px;color:var(--muted);margin:0}
-section.list{display:flex;flex-direction:column;gap:12px}
+section.list,div.list{display:flex;flex-direction:column;gap:12px}
+#placeMain{gap:18px}
+.sort{display:inline-flex;gap:2px;background:var(--sunk);border-radius:999px;padding:3px}
+.sort button{font:inherit;font-size:12.5px;border:0;background:transparent;color:var(--muted);padding:4px 10px;border-radius:999px;cursor:pointer}
+.sort button[aria-pressed="true"]{background:var(--surface);color:var(--fg);font-weight:700;box-shadow:0 1px 2px rgb(0 0 0 / .1)}
+.sort button:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
+.list-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .list-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .count{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 input,select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
@@ -91,6 +97,14 @@ ul.items.readonly li{padding:6px 14px}
 .reset{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;padding-top:4px}
 .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--yolk-soft);border-radius:12px;padding:10px 12px;font-size:13.5px}
 .empty{color:var(--muted);font-size:14px;padding:12px 14px}
+.trash{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:10px 14px}
+.trash summary{cursor:pointer;font-size:14px;font-weight:700;padding:2px 0}
+.trash[open] summary{margin-bottom:8px}
+.trash .note{margin-bottom:8px}
+.trash ul.items li{color:var(--muted);background:var(--sunk);border-color:transparent}
+.restore{font:inherit;font-size:12.5px;border:0;background:var(--surface);color:var(--fg);border-radius:999px;padding:3px 10px;cursor:pointer}
+.restore:hover{background:var(--yolk-soft)}
+.restore:focus-visible,.trash summary:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
 /* 식당 목록 */
 ul.places{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
 ul.places li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px 10px 14px;border-top:1px solid var(--line);align-items:center}
@@ -107,14 +121,18 @@ ul.places li.skip .pname,ul.places li.skip .pinfo{opacity:.45}
 .tog:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
 /* 프리셋 */
 .presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-.preset{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:8px 10px;cursor:pointer;text-align:left;min-width:0;display:flex;flex-direction:column;gap:1px}
-.preset .pn{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.preset .ps{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preset{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:10px 12px;cursor:pointer;text-align:center;min-width:0;display:flex;align-items:center;justify-content:center;min-height:44px}
+.preset .pn{font-weight:700;font-size:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .preset[aria-selected="true"]{border-color:var(--yolk);box-shadow:inset 0 0 0 1px var(--yolk);background:var(--yolk-soft)}
 .preset.blank .pn{color:var(--muted);font-weight:500}
 .summary{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
-.summary p{margin:0;font-size:13.5px;color:var(--muted);min-width:0;flex:1 1 220px;word-break:keep-all}
-.summary b{color:var(--fg)}
+.summary{align-items:flex-start}
+.sum-main{min-width:0;flex:1 1 240px;display:flex;flex-direction:column;gap:8px}
+.sum-title{margin:0;font-size:15px;word-break:keep-all}
+.sum-title b{font-weight:700}
+.sum-list{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:13.5px}
+.sum-list dt{color:var(--muted);white-space:nowrap}
+.sum-list dd{margin:0;min-width:0;word-break:keep-all}
 .blank-card{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:22px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
 .blank-card p{margin:0;color:var(--muted);font-size:14px;word-break:keep-all}
 /* 설정 창 */
@@ -189,6 +207,11 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
     </form>
     <input class="filter" id="menuFilter" placeholder="메뉴 찾기" autocomplete="off" aria-label="메뉴 찾기" enterkeyhint="search">
     <ul class="items" id="menuList"></ul>
+    <details class="trash" id="menuHidden" hidden>
+      <summary id="menuHiddenTitle"></summary>
+      <p class="note">되돌리기를 누르면 내 메뉴판에 다시 들어가요.</p>
+      <ul class="items" id="menuHiddenList"></ul>
+    </details>
     <div class="reset" id="menuReset"></div>
   </section>
 
@@ -205,11 +228,17 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
       </div>
       <div class="list" id="presetBody" hidden>
         <div class="summary">
-          <p id="presetSummary"></p>
+          <div class="sum-main" id="presetSummary"></div>
           <button class="btn small" data-setup>설정 바꾸기</button>
         </div>
         <div class="list-head"><h2>식당 목록</h2><span class="count" id="placeCount"></span></div>
-        <p class="note">뽑기에서 빼고 싶은 식당은 스위치를 꺼두세요.</p>
+        <div class="list-tools">
+          <p class="note">뽑기에서 빼고 싶은 식당은 스위치를 꺼두세요.</p>
+          <div class="sort" role="group" aria-label="정렬">
+            <button type="button" data-sort="dist">거리순</button>
+            <button type="button" data-sort="name">가나다순</button>
+          </div>
+        </div>
         <input class="filter" id="placeFilter" placeholder="식당·종류 찾기" autocomplete="off" aria-label="식당 찾기" enterkeyhint="search">
         <ul class="places" id="placeList"></ul>
       </div>
@@ -227,15 +256,15 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
     <div class="field">
       <label for="sOrigin">출발 위치</label>
       <div class="inline">
-        <input id="sOrigin" maxlength="60" autocomplete="off" placeholder="주소나 건물 이름 (예: 위례서일로 6)">
+        <input id="sOrigin" maxlength="60" autocomplete="off" placeholder="주소나 건물 이름">
         <button class="btn small" type="button" id="sFind">확인</button>
       </div>
       <p class="resolved" id="sOriginMsg"></p>
     </div>
     <div class="field">
       <label for="sDong">동</label>
-      <input id="sDong" maxlength="40" autocomplete="off" placeholder="예: 창곡동 (비워두면 동 상관없이)">
-      <p class="help">이 동에 있는 식당만 넣어요. 출발 위치와 다른 동이어도 돼요.</p>
+      <input id="sDong" maxlength="40" autocomplete="off" aria-describedby="sDongHelp">
+      <p class="help" id="sDongHelp">이 동에 있는 식당만 넣어요. 비워두면 동과 상관없이 찾아요.</p>
     </div>
     <fieldset class="field">
       <legend>걸어서</legend>
@@ -272,13 +301,12 @@ const MINUTES=[5,10,15,20,30];
 const M_PER_MIN=55;                          // 걸어서 1분 ≈ 직선 55m (실제 길은 직선보다 20~30% 김)
 const MAX_PLACES=2000;
 const KIND_ORDER=["한식","중식","일식","양식","분식","아시아음식","패스트푸드","치킨","뷔페","퓨전요리","도시락","샤브샤브","술집","간식","카페","기타"];
-const OFF_BY_DEFAULT=["술집","간식","카페"];
 
 const state={
   tab:"menu",current:null,last:{menu:null,place:null},
   user:null,isGoogle:false,
   mine:{added:[],hidden:[]},
-  presets:{p1:null,p2:null,p3:null},active:"p1",
+  presets:{p1:null,p2:null,p3:null},active:"p1",sort:"dist",
 };
 const $=id=>document.getElementById(id);
 const ko=(a,b)=>a.localeCompare(b,"ko");
@@ -364,6 +392,12 @@ function renderMenus(){
   $("menuForm").hidden=!edit;
   $("menuList").classList.toggle("readonly",!edit);
   $("menuList").innerHTML=shown.length?shown.map(m=>`<li>${esc(m)}${edit?`<button class="x" data-del-menu="${esc(m)}" aria-label="${esc(m)} 빼기">×</button>`:""}</li>`).join(""):`<li class="empty" style="border:0;background:none">${q?"찾는 메뉴가 없어요":"메뉴가 비어 있어요. 위에서 추가해보세요"}</li>`;
+  const hid=$("menuHidden"),hidden=edit?state.mine.hidden.filter(m=>DEFAULT_MENUS.includes(m)).sort(ko):[];
+  hid.hidden=!hidden.length;
+  if(hidden.length){
+    $("menuHiddenTitle").textContent=`뺀 기본 메뉴 ${hidden.length}개`;
+    $("menuHiddenList").innerHTML=hidden.map(m=>`<li>${esc(m)}<button class="restore" data-restore-menu="${esc(m)}" aria-label="${esc(m)} 되돌리기">되돌리기</button></li>`).join("");
+  }
   const box=$("menuReset");
   if(!edit){box.innerHTML="";return}
   const changed=state.mine.added.length||state.mine.hidden.length;
@@ -379,25 +413,26 @@ function addMenu(v){
 }
 function removeMenu(v){
   const m=state.mine;
-  if(m.added.includes(v))saveMine({added:m.added.filter(x=>x!==v),hidden:m.hidden});
-  else saveMine({added:m.added,hidden:[...m.hidden,v]});
-  toast(`'${v}' 뺐어요`);
+  if(m.added.includes(v)){saveMine({added:m.added.filter(x=>x!==v),hidden:m.hidden});toast(`'${v}' 지웠어요`)}
+  else{saveMine({added:m.added,hidden:[...m.hidden,v]});toast(`'${v}' 뺐어요. 아래 '뺀 기본 메뉴'에서 되돌릴 수 있어요`)}
 }
 
 // ---- 식당 탭 ----
-function presetSub(p){return p?`${p.dong?p.dong+" | ":""}걸어서 ${p.minutes}분`:"비어 있음"}
 function renderPlaces(){
   $("placeGate").hidden=state.isGoogle;$("placeMain").hidden=!state.isGoogle;
   if(!state.isGoogle)return;
-  $("presetBar").innerHTML=PRESETS.map((id,i)=>{const p=state.presets[id];return `<button class="preset${p?"":" blank"}" role="tab" aria-selected="${id===state.active}" data-preset="${id}"><span class="pn">${esc(p?p.name:`프리셋 ${i+1}`)}</span><span class="ps">${esc(presetSub(p))}</span></button>`}).join("");
+  $("presetBar").innerHTML=PRESETS.map((id,i)=>{const p=state.presets[id];return `<button class="preset${p?"":" blank"}" role="tab" aria-selected="${id===state.active}" data-preset="${id}"><span class="pn">${esc(p?p.name:`프리셋 ${i+1}`)}</span></button>`}).join("");
   const p=preset();
   $("presetBlank").hidden=!!p;$("presetBody").hidden=!p;
   if(!p)return;
-  $("presetSummary").innerHTML=`<b>${esc(p.origin.label)}</b>에서 걸어서 <b>${p.minutes}분</b>${p.dong?` | <b>${esc(p.dong)}</b>`:""} | ${esc(p.kinds.join(", ")||"종류 없음")}`;
+  $("presetSummary").innerHTML=`<p class="sum-title"><b>${esc(p.origin.label)}</b>에서 걸어서 <b>${p.minutes}분</b></p>
+    <dl class="sum-list"><dt>식당 동네</dt><dd>${p.dong?esc(p.dong):"제한 없음"}</dd><dt>음식 종류</dt><dd>${esc(p.kinds.join(", ")||"고른 종류 없음")}</dd></dl>`;
   const kinds=new Set(p.kinds),skip=new Set(p.skip);
   const all=p.items.filter(i=>kinds.has(i.kind));
   const q=$("placeFilter").value.trim();
-  const shown=q?all.filter(i=>(i.name+" "+(i.cat||"")).includes(q)):all;
+  let shown=q?all.filter(i=>(i.name+" "+(i.cat||"")).includes(q)):all;
+  shown=[...shown].sort(state.sort==="name"?(a,b)=>ko(a.name,b.name):(a,b)=>(a.dist??1e9)-(b.dist??1e9)||ko(a.name,b.name));
+  for(const b of document.querySelectorAll("[data-sort]"))b.setAttribute("aria-pressed",String(b.dataset.sort===state.sort));
   $("placeCount").textContent=`${all.length}곳 | 뽑기 ${all.filter(i=>!skip.has(placeKey(i))).length}곳`;
   $("placeList").innerHTML=shown.length?shown.map(i=>{const k=placeKey(i),off=skip.has(k);
     return `<li class="${off?"skip":""}"><span class="pname"><a href="${esc(linkOf(i))}" target="_blank" rel="noopener">${esc(i.name)}</a></span>
@@ -576,7 +611,7 @@ async function runScan(){
     setup.items=items;setup.dirty=false;
     $("sProgress").textContent=items.length?`${items.length}곳을 찾았어요. 뽑기에 넣을 종류를 골라주세요.${items.length>=MAX_PLACES?` (가까운 ${MAX_PLACES}곳까지만 저장해요)`:""}`:"조건에 맞는 식당이 없어요. 동 이름이나 시간을 바꿔보세요.";
     const p=preset(),keep=p&&!setup.dirty?new Set(p.kinds):null;
-    renderKinds(keep&&keep.size?keep:new Set(kindsOf(items).map(k=>k.kind).filter(k=>!OFF_BY_DEFAULT.includes(k))));
+    renderKinds(keep&&keep.size?keep:new Set(kindsOf(items).map(k=>k.kind)));
   }catch(e){$("sProgress").textContent="식당을 찾지 못했어요. 잠시 후 다시 해주세요."}
   finally{setup.scanning=false;$("sScan").disabled=false}
 }
@@ -635,13 +670,16 @@ document.addEventListener("click",e=>{
   if(t.hasAttribute("data-login")){login();return}
   if(t.hasAttribute("data-logout")){signOut(auth).then(()=>toast("로그아웃했어요"));return}
   if(t.hasAttribute("data-setup")){openSetup();return}
+  if(t.dataset.sort){state.sort=t.dataset.sort;try{localStorage.setItem("sort",state.sort)}catch(err){}renderPlaces();return}
   if(t.dataset.preset){state.active=t.dataset.preset;state.current=null;try{localStorage.setItem("preset:"+state.user.uid,state.active)}catch(err){}renderAll();return}
   if(t.dataset.delMenu!=null){removeMenu(t.dataset.delMenu);return}
+  if(t.dataset.restoreMenu!=null){const v=t.dataset.restoreMenu;saveMine({added:state.mine.added,hidden:state.mine.hidden.filter(x=>x!==v)});toast(`'${v}' 되돌렸어요`);return}
   if(t.dataset.ask){state.confirming=t.dataset.ask;renderAll();return}
   if(t.hasAttribute("data-no")){state.confirming=null;renderAll();return}
   if(t.dataset.yes==="menu"){state.confirming=null;saveMine({added:[],hidden:[]});toast("기본 메뉴판으로 되돌렸어요")}
 });
 
+try{if(localStorage.getItem("sort")==="name")state.sort="name"}catch(e){}
 let startTab="menu";try{if(localStorage.getItem("tab")==="place")startTab="place"}catch(e){}
 setTab(startTab);initFirebase();initKakao();
 </script>
