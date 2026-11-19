@@ -112,15 +112,23 @@ form.add .btn{flex:none;white-space:nowrap}
 .callout{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;background:var(--yolk-soft);border-radius:14px;padding:12px 14px}
 .callout p{margin:0;font-size:14px;line-height:1.5;min-width:0;flex:1 1 220px;word-break:keep-all}
 .callout b{font-weight:700}
-#migrate{display:flex;flex-direction:column;align-items:stretch}
-#migrate p{flex:none}
+dialog.mig-dlg{width:min(440px,calc(100vw - 32px))}
+#migrate{display:flex;flex-direction:column;gap:14px;padding:20px;overflow:auto}
+#migrate h2{font-size:20px;margin:0}
+#migrate p{margin:0;font-size:14px;line-height:1.55;word-break:keep-all}
 .mig{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .mig legend{float:left;width:100%;font-size:13px;font-weight:700;margin-bottom:2px}
 .mig label{display:flex;align-items:baseline;gap:8px;font-size:14px;cursor:pointer}
-.mig small{color:var(--muted);font-size:12px}
+.mig small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+.mig legend,.mig small{word-break:keep-all}
 .mig-row{flex-wrap:wrap;align-items:center!important}
 .mig-row span{font-weight:700;min-width:5em}
 .mig-row select{flex:1 1 180px;padding:8px 10px;font-size:13px}
+.pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:4px}
+.pg{font:inherit;font-size:22px;line-height:1;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.pg:disabled{opacity:.35;cursor:default}
+.pg-now{font-size:14px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.pg-now input{width:3.6em;text-align:center;padding:8px 6px;font-weight:700}
 .mig-warn{font-size:13px!important;color:var(--danger)}
 ul.items{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 ul.items li{display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 4px 4px 12px;font-size:14px}
@@ -221,7 +229,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
     </div>
   </header>
 
-  <div class="callout" id="migrate" hidden></div>
+  <dialog class="setup mig-dlg" id="migDlg" aria-labelledby="migTitle"><div id="migrate"></div></dialog>
 
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-menu" aria-selected="true" data-tab="menu">메뉴 추천</button>
@@ -279,8 +287,13 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
             <button type="button" data-sort="name">가나다순</button>
           </div>
         </div>
-        <input class="filter" id="placeFilter" placeholder="식당·종류 찾기" autocomplete="off" aria-label="식당 찾기" enterkeyhint="search">
+        <input class="filter" id="placeFilter" placeholder="식당 or 종류 찾기" autocomplete="off" aria-label="식당 찾기" enterkeyhint="search">
         <ul class="places" id="placeList"></ul>
+        <nav class="pager" id="placePager" aria-label="식당 목록 페이지" hidden>
+          <button type="button" class="pg" data-page="prev" aria-label="이전 페이지">‹</button>
+          <span class="pg-now"><input id="pageInput" inputmode="numeric" enterkeyhint="go" autocomplete="off" aria-label="이동할 페이지"> / <span id="pageTotal"></span> 페이지</span>
+          <button type="button" class="pg" data-page="next" aria-label="다음 페이지">›</button>
+        </nav>
       </div>
     </div>
   </section>
@@ -470,6 +483,12 @@ function removeMenu(v){
 }
 
 // ---- 식당 탭 ----
+const PAGE_SIZE=20;
+function goPage(n){
+  state.page=n;renderPlaces();
+  const top=$("placeFilter").getBoundingClientRect().top;
+  if(top<0)$("placeFilter").scrollIntoView({block:"start",behavior:"smooth"});
+}
 function renderPlaces(){
   $("placeGuest").hidden=state.isGoogle;
   $("presetBar").innerHTML=PRESETS.map((id,i)=>{const p=state.presets[id];return `<button class="preset${p?"":" blank"}" role="tab" aria-selected="${id===state.active}" data-preset="${id}"><span class="pn">${esc(p?p.name:`프리셋 ${i+1}`)}</span></button>`}).join("");
@@ -485,7 +504,15 @@ function renderPlaces(){
   shown=[...shown].sort(state.sort==="name"?(a,b)=>ko(a.name,b.name):(a,b)=>(a.dist??1e9)-(b.dist??1e9)||ko(a.name,b.name));
   for(const b of document.querySelectorAll("[data-sort]"))b.setAttribute("aria-pressed",String(b.dataset.sort===state.sort));
   $("placeCount").textContent=`${all.length}곳 | 뽑기 ${all.filter(i=>!skip.has(placeKey(i))).length}곳`;
-  $("placeList").innerHTML=shown.length?shown.map(i=>{const k=placeKey(i),off=skip.has(k);
+  const pages=Math.max(1,Math.ceil(shown.length/PAGE_SIZE));
+  state.page=Math.min(Math.max(1,state.page||1),pages);
+  const pageItems=shown.slice((state.page-1)*PAGE_SIZE,state.page*PAGE_SIZE);
+  $("placePager").hidden=pages<=1;
+  $("pageTotal").textContent=pages;
+  if(document.activeElement!==$("pageInput"))$("pageInput").value=state.page;
+  $("pageInput").max=pages;
+  for(const b of $("placePager").querySelectorAll("[data-page]"))b.disabled=b.dataset.page==="prev"?state.page<=1:state.page>=pages;
+  $("placeList").innerHTML=pageItems.length?pageItems.map(i=>{const k=placeKey(i),off=skip.has(k);
     return `<li class="${off?"skip":""}"><span class="pname"><a href="${esc(linkOf(i))}" target="_blank" rel="noopener noreferrer">${esc(i.name)}</a></span>
     <span class="pinfo">${[fmtCat(i.cat),i.dist!=null?i.dist+"m":"",i.addr].filter(Boolean).map(esc).join(" | ")}</span>
     <input type="checkbox" class="tog" role="switch" data-skip="${esc(k)}" ${off?"":"checked"} aria-label="${esc(i.name)} 뽑기에 넣기"></li>`}).join("")
@@ -549,7 +576,7 @@ async function removePreset(id){
   state.presets[id]=null;guestSave();renderAll();
 }
 function setActive(id){
-  state.active=id;state.current=null;
+  state.active=id;state.current=null;state.page=1;
   if(state.isGoogle){try{localStorage.setItem("preset:"+state.user.uid,id)}catch(e){}}else guestSave();
   renderAll();
 }
@@ -572,16 +599,20 @@ function handleUser(u){
 // ---- 로그인 전에 이 창에서 만든 내용을 계정으로 옮기기 ----
 function renderMigrate(){
   const box=$("migrate");
-  if(!state.migrate){box.hidden=true;box.innerHTML="";state.migBuilt=false;return}
-  box.hidden=false;
-  if(state.ready.size<1+PRESETS.length){box.innerHTML=`<p>이 창에서 만든 내용을 계정으로 옮길지 확인하고 있어요…</p>`;return}
+  const dlg=$("migDlg");
+  if(!state.migrate){if(dlg.open)dlg.close();box.innerHTML="";state.migBuilt=false;return}
+  if(!dlg.open){try{dlg.showModal()}catch(e){dlg.setAttribute("open","")}}
+  if(state.ready.size<1+PRESETS.length){
+    if(!box.querySelector("[data-loading]"))box.innerHTML=`<h2 id="migTitle">계정으로 옮길까요?</h2><p data-loading>계정에 저장된 내용을 불러오고 있어요…</p><div class="row" style="justify-content:flex-end"><button class="btn small" data-migrate-no>옮기지 않기</button></div>`;
+    return;
+  }
   if(state.migBuilt)return;
   state.migBuilt=true;
   const g=guestLoad(),acc=state.mine;
   const gMenu=g.mine.added.length||g.mine.hidden.length,aMenu=acc.added.length||acc.hidden.length;
   const gIds=PRESETS.filter(id=>g.presets[id]),free=PRESETS.filter(id=>!state.presets[id]);
   const parts=[];if(gMenu)parts.push("<b>메뉴판</b>");if(gIds.length)parts.push(`<b>식당 프리셋 ${gIds.length}개</b>`);
-  let h=`<p>로그인하기 전에 이 창에서 만든 ${parts.join("과 ")}${gIds.length?"가":"이"} 있어요. 내 계정으로 옮길까요? 옮기지 않으면 계정에는 저장되지 않아요.</p>`;
+  let h=`<h2 id="migTitle">계정으로 옮길까요?</h2><p>로그인하기 전에 이 창에서 만든 ${parts.join("과 ")}${gIds.length?"가":"이"} 있어요. 내 계정으로 옮길까요? 옮기지 않으면 계정에는 저장되지 않아요.</p>`;
   if(gMenu&&aMenu)h+=`<fieldset class="mig"><legend>계정에도 내 메뉴판이 있어요. 어떻게 할까요?</legend>
     <label><input type="radio" name="migMenu" value="merge" checked><span>합치기 <small>양쪽에서 추가한 메뉴는 모두 넣고, 뺀 메뉴도 모두 빼요</small></span></label>
     <label><input type="radio" name="migMenu" value="keep"><span>계정 메뉴판 유지 <small>이 창에서 바꾼 메뉴판은 버려요</small></span></label>
@@ -800,7 +831,12 @@ document.querySelector(".tabs").addEventListener("click",e=>{const t=e.target.cl
 $("draw").addEventListener("click",draw);
 $("copy").addEventListener("click",copyPick);
 $("menuFilter").addEventListener("input",renderMenus);
-$("placeFilter").addEventListener("input",renderPlaces);
+$("placeFilter").addEventListener("input",()=>{state.page=1;renderPlaces()});
+$("pageInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing){e.preventDefault();e.target.blur()}});
+$("pageInput").addEventListener("change",e=>{
+  const n=parseInt(e.target.value.replace(/[^0-9]/g,""),10);
+  if(n>=1)goPage(n);else{e.target.value=state.page;toast("페이지 번호를 숫자로 적어주세요")}
+});
 for(const id of ["menuFilter","placeFilter"])$(id).addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing)e.target.blur()});
 $("menuForm").addEventListener("submit",e=>{e.preventDefault();const v=$("menuName").value.trim();if(!v)return;addMenu(v);$("menuName").value=""});
 $("sFind").addEventListener("click",()=>{resolveOrigin();markDirty()});
@@ -812,6 +848,8 @@ $("sOrigin").addEventListener("input",()=>{setup.origin=null;$("sOriginMsg").tex
 $("sOrigin").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing){e.preventDefault();resolveOrigin()}});
 $("sMinutes").addEventListener("change",markDirty);
 $("setupForm").addEventListener("submit",e=>e.preventDefault());
+$("migDlg").addEventListener("cancel",e=>e.preventDefault());
+$("migDlg").addEventListener("close",()=>{if(state.migrate)renderMigrate()});
 document.addEventListener("change",e=>{
   const t=e.target;
   if(t.closest?.("#migrate")){migrateReset();return}if(!t.matches?.(".tog[data-skip]"))return;
@@ -822,14 +860,16 @@ document.addEventListener("change",e=>{
   savePresetPart(state.active,{skip:p.skip});
 });
 document.addEventListener("click",e=>{
-  const t=e.target.closest("button");if(!t||t.closest("dialog"))return;
+  const t=e.target.closest("button");if(!t)return;
+  if(t.hasAttribute("data-migrate-yes")){migrateGuest(t);return}
+  if(t.hasAttribute("data-migrate-no")){try{sessionStorage.setItem(GUEST_SKIP,"1")}catch(err){}state.migrate=false;renderMigrate();toast("옮기지 않았어요. 로그아웃하면 이 창에서 만든 내용을 다시 볼 수 있어요");return}
+  if(t.closest("dialog"))return;
   if(t.hasAttribute("data-login")){login();return}
   if(t.hasAttribute("data-logout")){signOut(auth).then(()=>toast("로그아웃했어요"));return}
   if(t.hasAttribute("data-setup")){openSetup();return}
-  if(t.dataset.sort){state.sort=t.dataset.sort;try{localStorage.setItem("sort",state.sort)}catch(err){}renderPlaces();return}
+  if(t.dataset.page){goPage((state.page||1)+(t.dataset.page==="next"?1:-1));return}
+  if(t.dataset.sort){state.page=1;state.sort=t.dataset.sort;try{localStorage.setItem("sort",state.sort)}catch(err){}renderPlaces();return}
   if(t.dataset.preset){setActive(t.dataset.preset);return}
-  if(t.hasAttribute("data-migrate-yes")){migrateGuest(t);return}
-  if(t.hasAttribute("data-migrate-no")){try{sessionStorage.setItem(GUEST_SKIP,"1")}catch(err){}state.migrate=false;renderMigrate();toast("옮기지 않았어요. 로그아웃하면 이 창에서 만든 내용을 다시 볼 수 있어요");return}
   if(t.dataset.delMenu!=null){removeMenu(t.dataset.delMenu);return}
   if(t.dataset.restoreMenu!=null){const v=t.dataset.restoreMenu;saveMine({added:state.mine.added,hidden:state.mine.hidden.filter(x=>x!==v)});toast(`'${v}' 되돌렸어요`);return}
   if(t.dataset.ask){state.confirming=t.dataset.ask;renderAll();return}
