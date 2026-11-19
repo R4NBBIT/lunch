@@ -2,7 +2,7 @@
 
 동료들과 함께 쓰는 점심 메뉴·맛집 뽑기 페이지입니다.
 
-👉 https://r4nbbit.github.io/lunch/
+👉 https://r4nbbit.github.io/lunch-gacha/
 
 ---
 
@@ -31,7 +31,7 @@
 ## 📂 구조
 
 ```
-lunch/
+lunch-gacha/
 ├─ index.html        # 페이지 전체 (화면, 기본 메뉴판, Firebase·카카오 연결)
 ├─ firestore.rules   # Firestore 보안 규칙 (콘솔에 붙여넣는 용도)
 └─ README.md
