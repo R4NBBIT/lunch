@@ -89,6 +89,10 @@ ul.places li.off{opacity:.55}
 .pinfo{grid-column:1;font-size:12.5px;color:var(--muted);min-width:0}
 .x{grid-row:1 / span 2;grid-column:2;font:inherit;border:0;background:transparent;color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1}
 ul.items .x{width:26px;height:26px;font-size:15px}
+ul.items.readonly li{padding:6px 14px}
+.callout{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;background:var(--yolk-soft);border-radius:14px;padding:12px 14px}
+.callout p{margin:0;font-size:14px;line-height:1.5;min-width:0;flex:1 1 220px;word-break:keep-all}
+.callout b{font-weight:700}
 .x:hover{background:var(--sunk);color:var(--danger)}
 .reset{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;padding-top:4px}
 .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--yolk-soft);border-radius:12px;padding:10px 12px;font-size:13.5px}
@@ -148,14 +152,13 @@ ul.places li.skip .pname,ul.places li.skip .pinfo{opacity:.45}
 
   <section class="list" id="menuSec">
     <div class="list-head"><h2>메뉴판</h2><span class="count" id="menuCount"></span></div>
-    <p class="note" id="menuNote"></p>
+    <div class="note" id="menuNote"></div>
     <form class="add" id="menuForm" hidden>
       <input id="menuName" name="name" placeholder="추가하고 싶은 메뉴 이름을 적어주세요!" maxlength="40" autocomplete="off">
       <button class="btn" type="submit">추가</button>
     </form>
     <form class="findrow" id="menuFind" role="search">
       <input class="filter" id="menuFilter" placeholder="메뉴 찾기" autocomplete="off" aria-label="메뉴 찾기">
-      <button class="btn" type="submit">검색</button>
     </form>
     <ul class="items" id="menuList"></ul>
     <div class="reset" id="menuReset"></div>
@@ -176,7 +179,6 @@ ul.places li.skip .pname,ul.places li.skip .pinfo{opacity:.45}
       <p class="note">뽑기에서 빼고 싶은 식당은 스위치를 꺼두세요. 내 설정은 나에게만 적용돼요.</p>
       <form class="findrow" id="placeFind" role="search">
         <input class="filter" id="placeFilter" placeholder="식당·종류 찾기" autocomplete="off" aria-label="식당 찾기">
-        <button class="btn" type="submit">검색</button>
       </form>
       <ul class="places" id="placeList"></ul>
       <div id="adminTools"></div>
@@ -278,7 +280,10 @@ function renderMenus(){
   const all=menus(),q=$("menuFilter").value.trim(),edit=state.isGoogle;
   const shown=q?all.filter(m=>m.includes(q)):all;
   $("menuCount").textContent=`${all.length}개 · ${edit?"내 메뉴판":"기본 메뉴판"}`;
-  $("menuNote").innerHTML=edit?"내가 추가하거나 지운 메뉴는 나에게만 적용돼요.":`메뉴를 추가하거나 지우려면 <button class="linkbtn" data-login>구글 로그인</button>을 해주세요.`;
+  const note=$("menuNote");
+  if(edit){note.className="note";note.textContent="내가 추가하거나 지운 메뉴는 나에게만 적용돼요."}
+  else{note.className="callout";note.innerHTML=`<p><b>나만의 메뉴판</b>을 만들어보세요. 로그인하면 메뉴를 추가하거나 뺄 수 있어요.</p><button class="btn small" data-login>구글 로그인</button>`}
+  $("menuList").classList.toggle("readonly",!edit);
   $("menuForm").hidden=!edit;
   $("menuList").innerHTML=shown.length?shown.map(m=>`<li>${esc(m)}${edit?`<button class="x" data-del-menu="${esc(m)}" aria-label="${esc(m)} 삭제">×</button>`:""}</li>`).join(""):`<li class="empty" style="border:0;background:none">${q?"찾는 메뉴가 없어요":"메뉴가 비어 있어요. 위에서 추가해보세요"}</li>`;
   const box=$("menuReset");
