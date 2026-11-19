@@ -191,7 +191,7 @@ const state={
   user:null,isGoogle:false,isAdmin:false,
   mine:{added:[],hidden:[]},             // 내 메뉴판: 추가한 메뉴, 숨긴 기본 메뉴
   places:[],placeAccess:"locked",       // locked | loading | open
-  hasDefault:null,confirming:null
+  hasDefault:null,confirming:null,scan:null
 };
 const $=id=>document.getElementById(id);
 const ko=(a,b)=>a.localeCompare(b,"ko");
@@ -311,9 +311,12 @@ function renderTools(){
   if(!state.isAdmin||state.placeAccess!=="open"){box.innerHTML="";return}
   const c=state.confirming;
   let html=`<div class="tools">`;
-  if(c==="place")html+=`<div class="confirm">맛집 목록을 기본 목록으로 되돌릴까요? 추가·삭제한 내용이 모두 사라져요.<button class="btn small danger" data-yes="place">되돌리기</button><button class="btn small" data-no>취소</button></div>`;
+  const sc=state.scan;
+  if(sc&&sc.running)html+=`<p class="note">창곡동 음식점을 찾는 중이에요… 지금까지 ${sc.count}곳</p>`;
+  else if(sc&&sc.items)html+=`<div class="confirm">걸어서 20분 이내(직선 ${(SCAN_RADIUS/1000).toFixed(1)}km) 창곡동 음식점 ${sc.items.length}곳을 찾았어요. 지금 목록(${places().length}곳)을 이 목록으로 바꿀까요? 기본 목록도 함께 바뀌어요.<button class="btn small danger" data-yes="scan">바꾸기</button><button class="btn small" data-scan-cancel>취소</button></div>`;
+  else if(c==="place")html+=`<div class="confirm">맛집 목록을 기본 목록으로 되돌릴까요? 추가·삭제한 내용이 모두 사라져요.<button class="btn small danger" data-yes="place">되돌리기</button><button class="btn small" data-no>취소</button></div>`;
   else if(c==="setdefault")html+=`<div class="confirm">지금 맛집 목록(${places().length}곳)을 기본 목록으로 저장할까요? 초기화하면 이 목록으로 돌아가요.<button class="btn small danger" data-yes="setdefault">저장</button><button class="btn small" data-no>취소</button></div>`;
-  else html+=`<div class="row"><button class="btn small" data-ask="place" ${state.hasDefault?"":"disabled"}>맛집 초기화</button><button class="btn small" data-ask="setdefault">지금 목록을 기본 목록으로 저장</button></div>`;
+  else html+=`<div class="row"><button class="btn small" data-ask="place" ${state.hasDefault?"":"disabled"}>맛집 초기화</button><button class="btn small" data-ask="setdefault">지금 목록을 기본 목록으로 저장</button><button class="btn small" data-scan ${kk.places&&kk.center?"":"disabled"}>창곡동 음식점 불러오기</button></div>`;
   if(state.hasDefault===false)html+=`<label for="importFile">기본 맛집 목록이 아직 없어요. 목록 파일(JSON)을 골라 등록하세요.</label><input id="importFile" type="file" accept=".json,application/json">`;
   box.innerHTML=html+`</div>`;
 }
@@ -443,9 +446,68 @@ function initKakao(){
   if(!k||!k.maps||!k.maps.load){$("placeHint").textContent="지금은 가게 검색에 연결되지 않아서 가게를 추가할 수 없어요.";return}
   k.maps.load(()=>{
     kk.places=new k.maps.services.Places();
-    new k.maps.services.Geocoder().addressSearch(OFFICE_ADDR,(r,st)=>{if(st===k.maps.services.Status.OK&&r[0])kk.center=new k.maps.LatLng(r[0].y,r[0].x)});
+    new k.maps.services.Geocoder().addressSearch(OFFICE_ADDR,(r,st)=>{if(st===k.maps.services.Status.OK&&r[0]){kk.center=new k.maps.LatLng(Number(r[0].y),Number(r[0].x));renderTools()}});
     $("placeSearch").disabled=false;
   });
+}
+// ---- 관리자: 회사 주변 창곡동 음식점 한꺼번에 불러오기 ----
+const SCAN_RADIUS=1100;                 // 직선거리(m). 걸어서 약 20분
+const SKIP_KINDS=["술집","간식"];         // 카카오 분류 두 번째 단계가 이것이면 제외
+function meters(lat1,lng1,lat2,lng2){
+  const R=6371000,toR=x=>x*Math.PI/180,dLat=toR(lat2-lat1),dLng=toR(lng2-lng1);
+  const a=Math.sin(dLat/2)**2+Math.cos(toR(lat1))*Math.cos(toR(lat2))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+// 카카오는 한 번에 최대 45곳만 알려줘서, 넘치면 구역을 4등분해서 다시 찾음
+function scanRect(sw,ne,found,depth){
+  const k=window.kakao,S=k.maps.services;
+  const bounds=new k.maps.LatLngBounds(new k.maps.LatLng(sw[0],sw[1]),new k.maps.LatLng(ne[0],ne[1]));
+  return new Promise(resolve=>{
+    let first=true;
+    const cb=async(data,status,pg)=>{
+      if(status!==S.Status.OK){resolve();return}
+      if(first&&pg.totalCount>45&&depth<6){
+        first=false;
+        const mLat=(sw[0]+ne[0])/2,mLng=(sw[1]+ne[1])/2;
+        for(const [a,b] of [[sw,[mLat,mLng]],[[sw[0],mLng],[mLat,ne[1]]],[[mLat,sw[1]],[ne[0],mLng]],[[mLat,mLng],ne]])await scanRect(a,b,found,depth+1);
+        resolve();return;
+      }
+      first=false;
+      for(const d of data)found.set(d.id,d);
+      state.scan.count=found.size;renderTools();
+      if(pg.hasNextPage)pg.nextPage();else resolve();
+    };
+    kk.places.categorySearch("FD6",cb,{bounds});
+  });
+}
+async function scanArea(){
+  if(!state.isAdmin||!kk.places||!kk.center)return;
+  state.scan={running:true,count:0};state.confirming=null;renderTools();
+  const lat=Number(kk.center.getLat()),lng=Number(kk.center.getLng());
+  const dLat=SCAN_RADIUS/111320,dLng=SCAN_RADIUS/(111320*Math.cos(lat*Math.PI/180));
+  const found=new Map();
+  try{await scanRect([lat-dLat,lng-dLng],[lat+dLat,lng+dLng],found,0)}catch(e){}
+  const items=[];
+  for(const d of found.values()){
+    const kind=String(d.category_name||"").split(">").map(x=>x.trim())[1]||"";
+    if(SKIP_KINDS.includes(kind)||!inArea(d))continue;
+    const dist=Math.round(meters(lat,lng,Number(d.y),Number(d.x)));
+    if(dist>SCAN_RADIUS)continue;
+    const o={name:d.place_name,cat:catOf(d.category_name),addr:d.road_address_name||d.address_name||"",dist,off:null};
+    if(d.place_url)o.url=d.place_url;
+    items.push(o);
+  }
+  items.sort((a,b)=>a.dist-b.dist);
+  if(!items.length){state.scan=null;renderTools();toast("찾은 음식점이 없어요. 잠시 후 다시 해보세요");return}
+  state.scan={items};renderTools();
+}
+async function applyScan(){
+  const items=state.scan?.items;state.scan=null;
+  if(!items||!state.isAdmin){renderAll();return}
+  try{
+    await setDoc(doc(db,"places","default"),{items});state.hasDefault=true;
+    savePlaces(items);toast(`${items.length}곳으로 바꿨어요`);
+  }catch(e){renderAll();toast(e?.code==="permission-denied"?"저장이 거부됐어요. 보안 규칙을 최신으로 게시했는지 확인해주세요":"저장하지 못했어요")}
 }
 function hideResults(){$("placeResults").hidden=true;$("placeResults").innerHTML=""}
 function catOf(c){const parts=String(c||"").split(">").map(x=>x.trim()).filter(Boolean);return parts.length>1?parts.slice(1).join(" · "):(parts[0]||"")}
@@ -496,12 +558,15 @@ document.addEventListener("click",e=>{
   if(t.dataset.delMenu!=null){removeMenu(t.dataset.delMenu);return}
   if(t.dataset.delPlace!=null){const v=t.dataset.delPlace;savePlaces(places().filter(p=>p.name!==v));if(state.current?.name===v){state.current=null;renderPlate()}toast(`'${v}' 뺐어요`);return}
   if(t.dataset.ask){if(t.dataset.ask!=="menu"&&!state.isAdmin)return;state.confirming=t.dataset.ask;renderAll();return}
+  if(t.hasAttribute("data-scan")){scanArea();return}
+  if(t.hasAttribute("data-scan-cancel")){state.scan=null;renderAll();return}
   if(t.hasAttribute("data-no")){state.confirming=null;renderAll();return}
   if(t.dataset.yes){
     const k=t.dataset.yes;state.confirming=null;
     if(k==="menu"){saveMine({added:[],hidden:[]});toast("기본 메뉴판으로 되돌렸어요")}
     else if(k==="place"&&state.isAdmin)resetPlaces();
     else if(k==="setdefault"&&state.isAdmin)saveAsDefault();
+    else if(k==="scan"&&state.isAdmin)applyScan();
     else renderAll();
   }
 });

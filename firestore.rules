@@ -29,7 +29,7 @@ service cloud.firestore {
     }
 
     function validItems(d) {
-      return d.keys().hasOnly(['items']) && d.items is list && d.items.size() <= 300;
+      return d.keys().hasOnly(['items']) && d.items is list && d.items.size() <= 1000;
     }
 
     // 내 메뉴판: 구글 로그인한 본인만
