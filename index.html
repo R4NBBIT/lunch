@@ -259,7 +259,6 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   <section class="list" id="placeSec" hidden>
     <div class="callout" id="placeGuest" hidden>
       <p><b>로그인하지 않아도 식당 프리셋을 만들 수 있어요.</b> 다만 만든 프리셋과 식당 목록은 <b>이 창에만 임시로 저장</b>돼서, 창을 닫으면 사라져요. 구글로 로그인하면 계정에 저장돼서 다음에 들어와도, 다른 기기에서도 그대로 쓸 수 있어요.</p>
-      <button class="btn small" data-login>구글 로그인</button>
     </div>
     <div class="list" id="placeMain">
       <div class="presets" role="tablist" aria-label="내 프리셋" id="presetBar"></div>
@@ -441,7 +440,7 @@ function renderMenus(){
   $("menuCount").textContent=`${all.length}개 | ${state.isGoogle?"내 메뉴판":"임시 메뉴판"}`;
   const note=$("menuNote");
   if(state.isGoogle){note.className="note";note.textContent="내가 추가하거나 뺀 메뉴는 내 계정에 저장되고, 나에게만 적용돼요."}
-  else{note.className="callout";note.innerHTML=`<p><b>로그인하지 않아도 메뉴를 추가하거나 뺄 수 있어요.</b> 다만 지금 바꾼 메뉴판은 <b>이 창에만 임시로 저장</b>돼서, 창을 닫으면 처음 메뉴판으로 돌아가요. 구글로 로그인하면 계정에 저장돼서 다음에 들어와도, 다른 기기에서도 그대로 쓸 수 있어요.</p><button class="btn small" data-login>구글 로그인</button>`}
+  else{note.className="callout";note.innerHTML=`<p><b>로그인하지 않아도 메뉴를 추가하거나 뺄 수 있어요.</b> 다만 지금 바꾼 메뉴판은 <b>이 창에만 임시로 저장</b>돼서, 창을 닫으면 처음 메뉴판으로 돌아가요. 구글로 로그인하면 계정에 저장돼서 다음에 들어와도, 다른 기기에서도 그대로 쓸 수 있어요.</p>`}
   $("menuForm").hidden=!edit;
   $("menuList").classList.toggle("readonly",!edit);
   $("menuList").innerHTML=shown.length?shown.map(m=>`<li>${esc(m)}${edit?`<button class="x" data-del-menu="${esc(m)}" aria-label="${esc(m)} 빼기">×</button>`:""}</li>`).join(""):`<li class="empty" style="border:0;background:none">${q?"찾는 메뉴가 없어요":"메뉴가 비어 있어요. 위에서 추가해보세요"}</li>`;
