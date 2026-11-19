@@ -75,7 +75,7 @@ h2{font-family:var(--display);font-weight:400;font-size:21px;margin:0}
 .tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:999px;padding:4px}
 .tabs button{font:inherit;font-weight:700;border:0;background:transparent;color:var(--muted);padding:10px;border-radius:999px;cursor:pointer}
 .tabs button[aria-selected="true"]{background:var(--yolk);color:var(--yolk-ink);box-shadow:0 1px 3px rgb(0 0 0 / .12)}
-.plate{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:24px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.plate{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:30px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
 .plate .label{font-size:12px;letter-spacing:.08em;color:var(--muted)}
 .pick{font-family:var(--display);font-size:clamp(30px,9vw,44px);line-height:1.15;margin:0;text-wrap:balance;min-height:1.2em;word-break:keep-all}
 .pick.idle{color:var(--muted);font-size:22px}
@@ -83,7 +83,9 @@ h2{font-family:var(--display);font-weight:400;font-size:21px;margin:0}
 .meta a{color:var(--fg);font-weight:500}
 .chip{display:inline-block;background:var(--yolk-soft);color:var(--fg);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500}
 .row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.plate-msg{font-size:13px;color:var(--ok);min-height:1.3em;margin:0}
+.meta:empty{display:none}
+/* 안내 문구는 아래 여백 안에 띄워서, 문구가 없을 때도 위아래 여백이 같게 */
+.plate-msg{position:absolute;left:16px;right:16px;bottom:7px;font-size:12px;line-height:1.3;color:var(--ok);margin:0}
 .btn{font:inherit;font-weight:700;border-radius:12px;padding:12px 18px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
 .btn.main{background:var(--yolk);color:var(--yolk-ink);border-color:transparent;font-size:17px;padding:14px 28px}
 .btn.primary{background:var(--yolk);color:var(--yolk-ink);border-color:transparent}
@@ -110,6 +112,16 @@ form.add .btn{flex:none;white-space:nowrap}
 .callout{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;background:var(--yolk-soft);border-radius:14px;padding:12px 14px}
 .callout p{margin:0;font-size:14px;line-height:1.5;min-width:0;flex:1 1 220px;word-break:keep-all}
 .callout b{font-weight:700}
+#migrate{display:flex;flex-direction:column;align-items:stretch}
+#migrate p{flex:none}
+.mig{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.mig legend{float:left;width:100%;font-size:13px;font-weight:700;margin-bottom:2px}
+.mig label{display:flex;align-items:baseline;gap:8px;font-size:14px;cursor:pointer}
+.mig small{color:var(--muted);font-size:12px}
+.mig-row{flex-wrap:wrap;align-items:center!important}
+.mig-row span{font-weight:700;min-width:5em}
+.mig-row select{flex:1 1 180px;padding:8px 10px;font-size:13px}
+.mig-warn{font-size:13px!important;color:var(--danger)}
 ul.items{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 ul.items li{display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 4px 4px 12px;font-size:14px}
 ul.items.readonly li{padding:6px 14px}
@@ -209,6 +221,8 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
     </div>
   </header>
 
+  <div class="callout" id="migrate" hidden></div>
+
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-menu" aria-selected="true" data-tab="menu">메뉴 추천</button>
     <button role="tab" id="tab-place" aria-selected="false" data-tab="place">식당 추천</button>
@@ -243,11 +257,11 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   </section>
 
   <section class="list" id="placeSec" hidden>
-    <div class="callout" id="placeGate">
-      <p><b>내 주변 식당</b>을 뽑아보세요. 로그인하면 출발 위치를 정해서 걸어갈 만한 식당을 모아둘 수 있어요.</p>
+    <div class="callout" id="placeGuest" hidden>
+      <p><b>로그인하지 않아도 식당 프리셋을 만들 수 있어요.</b> 다만 만든 프리셋과 식당 목록은 <b>이 창에만 임시로 저장</b>돼서, 창을 닫으면 사라져요. 구글로 로그인하면 계정에 저장돼서 다음에 들어와도, 다른 기기에서도 그대로 쓸 수 있어요.</p>
       <button class="btn small" data-login>구글 로그인</button>
     </div>
-    <div class="list" id="placeMain" hidden>
+    <div class="list" id="placeMain">
       <div class="presets" role="tablist" aria-label="내 프리셋" id="presetBar"></div>
       <div class="blank-card" id="presetBlank" hidden>
         <p>이 프리셋은 비어 있어요. 출발 위치와 걸어갈 시간을 정하면 주변 식당을 모아드려요.</p>
@@ -362,7 +376,6 @@ function toast(m){const s=$("snack");s.textContent=m;s.classList.add("show");cle
 
 // ---- 메뉴 ----
 function menus(){
-  if(!state.isGoogle)return DEFAULT_MENUS;
   const hidden=new Set(state.mine.hidden);
   const base=DEFAULT_MENUS.filter(m=>!hidden.has(m));
   return [...base,...state.mine.added.filter(m=>!base.includes(m))].sort(ko);
@@ -410,7 +423,7 @@ async function copyPick(){
   const body=state.tab==="menu"?`🍽️ 오늘 점심 메뉴: ${c}`:`🍽️ 오늘 점심은 ${c.name}!${c.cat?` (${c.cat})`:""}\n📍 ${c.addr||""}\n${linkOf(c)}`;
   const text=`${body}\n\n🎰 나도 점심 뽑아보기 👉 ${SITE_URL}`;
   try{await navigator.clipboard.writeText(text);plateMsg("복사됐어요")}
-  catch(e){const r=document.createRange();r.selectNodeContents($("plate"));const s=getSelection();s.removeAllRanges();s.addRange(r);plateMsg("복사가 막혀 있어서 선택만 해뒀어요. 길게 눌러 복사하세요")}
+  catch(e){const r=document.createRange();r.selectNodeContents($("plate"));const s=getSelection();s.removeAllRanges();s.addRange(r);plateMsg("복사가 막혀서 선택만 해뒀어요. 길게 눌러 복사하세요")}
 }
 
 // ---- 계정 줄 ----
@@ -423,12 +436,12 @@ function renderAcct(){
 
 // ---- 메뉴 탭 ----
 function renderMenus(){
-  const all=menus(),q=$("menuFilter").value.trim(),edit=state.isGoogle;
+  const all=menus(),q=$("menuFilter").value.trim(),edit=true;
   const shown=q?all.filter(m=>m.includes(q)):all;
-  $("menuCount").textContent=`${all.length}개 | ${edit?"내 메뉴판":"기본 메뉴판"}`;
+  $("menuCount").textContent=`${all.length}개 | ${state.isGoogle?"내 메뉴판":"임시 메뉴판"}`;
   const note=$("menuNote");
-  if(edit){note.className="note";note.textContent="내가 추가하거나 지운 메뉴는 나에게만 적용돼요."}
-  else{note.className="callout";note.innerHTML=`<p><b>나만의 메뉴판</b>을 만들어보세요. 로그인하면 메뉴를 추가하거나 뺄 수 있어요.</p><button class="btn small" data-login>구글 로그인</button>`}
+  if(state.isGoogle){note.className="note";note.textContent="내가 추가하거나 뺀 메뉴는 내 계정에 저장되고, 나에게만 적용돼요."}
+  else{note.className="callout";note.innerHTML=`<p><b>로그인하지 않아도 메뉴를 추가하거나 뺄 수 있어요.</b> 다만 지금 바꾼 메뉴판은 <b>이 창에만 임시로 저장</b>돼서, 창을 닫으면 처음 메뉴판으로 돌아가요. 구글로 로그인하면 계정에 저장돼서 다음에 들어와도, 다른 기기에서도 그대로 쓸 수 있어요.</p><button class="btn small" data-login>구글 로그인</button>`}
   $("menuForm").hidden=!edit;
   $("menuList").classList.toggle("readonly",!edit);
   $("menuList").innerHTML=shown.length?shown.map(m=>`<li>${esc(m)}${edit?`<button class="x" data-del-menu="${esc(m)}" aria-label="${esc(m)} 빼기">×</button>`:""}</li>`).join(""):`<li class="empty" style="border:0;background:none">${q?"찾는 메뉴가 없어요":"메뉴가 비어 있어요. 위에서 추가해보세요"}</li>`;
@@ -459,8 +472,7 @@ function removeMenu(v){
 
 // ---- 식당 탭 ----
 function renderPlaces(){
-  $("placeGate").hidden=state.isGoogle;$("placeMain").hidden=!state.isGoogle;
-  if(!state.isGoogle)return;
+  $("placeGuest").hidden=state.isGoogle;
   $("presetBar").innerHTML=PRESETS.map((id,i)=>{const p=state.presets[id];return `<button class="preset${p?"":" blank"}" role="tab" aria-selected="${id===state.active}" data-preset="${id}"><span class="pn">${esc(p?p.name:`프리셋 ${i+1}`)}</span></button>`}).join("");
   const p=preset();
   $("presetBlank").hidden=!!p;$("presetBody").hidden=!p;
@@ -480,7 +492,7 @@ function renderPlaces(){
     <input type="checkbox" class="tog" role="switch" data-skip="${esc(k)}" ${off?"":"checked"} aria-label="${esc(i.name)} 뽑기에 넣기"></li>`}).join("")
     :`<li class="empty">${q?"찾는 식당이 없어요":"고른 종류에 해당하는 식당이 없어요"}</li>`;
 }
-function renderAll(){renderMenus();renderPlaces();renderPlate()}
+function renderAll(){renderMenus();renderPlaces();renderPlate();renderMigrate()}
 
 // ---- Firebase ----
 const firebaseConfig={
@@ -499,29 +511,139 @@ function cleanPreset(d){
     kinds:cleanStrs(d.kinds),skip:cleanStrs(d.skip),
     items:d.items.filter(i=>i&&typeof i.name==="string").map(i=>({name:i.name,cat:str(i.cat),kind:str(i.kind)||"기타",addr:str(i.addr),dist:num(i.dist),url:safeUrl(i.url)}))};
 }
+// ---- 로그인 안 했을 때: 이 탭에만 임시 저장 (새로고침하면 남고, 탭을 닫으면 사라짐) ----
+const GUEST_KEY="lunch-guest",GUEST_SKIP="lunch-guest-skip-migrate";
+function guestLoad(){
+  let g=null;try{g=JSON.parse(sessionStorage.getItem(GUEST_KEY)||"null")}catch(e){}
+  g=g&&typeof g==="object"?g:{};
+  const presets={};for(const id of PRESETS)presets[id]=cleanPreset(g.presets?.[id]);
+  return {mine:{added:cleanStrs(g.mine?.added),hidden:cleanStrs(g.mine?.hidden)},presets,active:PRESETS.includes(g.active)?g.active:"p1"};
+}
+function guestSave(){
+  if(state.isGoogle)return;
+  try{sessionStorage.setItem(GUEST_KEY,JSON.stringify({mine:state.mine,presets:state.presets,active:state.active}))}
+  catch(e){toast("이 창에 저장하지 못했어요. 브라우저 저장 공간을 확인해주세요")}
+}
+function guestHas(g){return g.mine.added.length||g.mine.hidden.length||PRESETS.some(id=>g.presets[id])}
+function guestClear(){try{sessionStorage.removeItem(GUEST_KEY);sessionStorage.removeItem(GUEST_SKIP)}catch(e){}}
+
 let db,auth,unsubs=[];
 const queue={};
 function enqueue(k,fn){queue[k]=(queue[k]||Promise.resolve()).then(fn)}
 function saveMine(next){
   state.mine=next;renderAll();
-  const uid=state.user?.uid;if(!uid)return;
+  if(!state.isGoogle){guestSave();return}
+  const uid=state.user.uid;
   enqueue("mine",()=>setDoc(doc(db,"users",uid),next).catch(()=>toast("저장하지 못했어요. 잠시 후 다시 해보세요")));
 }
 function presetRef(id){return doc(db,"users",state.user.uid,"presets",id)}
 function savePresetPart(id,part){
+  if(!state.isGoogle){guestSave();return}
   enqueue(id,()=>setDoc(presetRef(id),part,{merge:true}).catch(()=>toast("저장하지 못했어요. 잠시 후 다시 해보세요")));
+}
+async function putPreset(id,data){
+  if(state.isGoogle)return setDoc(presetRef(id),data);
+  state.presets[id]=cleanPreset(data);guestSave();renderAll();
+}
+async function removePreset(id){
+  if(state.isGoogle)return deleteDoc(presetRef(id));
+  state.presets[id]=null;guestSave();renderAll();
+}
+function setActive(id){
+  state.active=id;state.current=null;
+  if(state.isGoogle){try{localStorage.setItem("preset:"+state.user.uid,id)}catch(e){}}else guestSave();
+  renderAll();
 }
 function handleUser(u){
   state.user=u;state.isGoogle=!!u&&u.providerData.some(p=>p.providerId==="google.com");
   state.confirming=null;
   unsubs.forEach(f=>f());unsubs=[];
-  state.mine={added:[],hidden:[]};state.presets={p1:null,p2:null,p3:null};
-  if(state.isGoogle){
+  state.mine={added:[],hidden:[]};state.presets={p1:null,p2:null,p3:null};state.migrate=false;state.migBuilt=false;state.ready=new Set();
+  if(!state.isGoogle){
+    const g=guestLoad();state.mine=g.mine;state.presets=g.presets;state.active=g.active;
+  }else{
+    let skip=false;try{skip=sessionStorage.getItem(GUEST_SKIP)==="1"}catch(e){}
+    state.migrate=!skip&&!!guestHas(guestLoad());
     try{const a=localStorage.getItem("preset:"+u.uid);if(PRESETS.includes(a))state.active=a}catch(e){}
-    unsubs.push(onSnapshot(doc(db,"users",u.uid),s=>{const d=s.exists()?s.data():{};state.mine={added:cleanStrs(d.added),hidden:cleanStrs(d.hidden)};renderAll()},()=>{}));
-    for(const id of PRESETS)unsubs.push(onSnapshot(presetRef(id),s=>{state.presets[id]=s.exists()?cleanPreset(s.data()):null;if(state.tab==="place"&&id===state.active&&!state.presets[id])state.current=null;renderAll()},()=>{}));
+    unsubs.push(onSnapshot(doc(db,"users",u.uid),s=>{state.ready.add("mine");const d=s.exists()?s.data():{};state.mine={added:cleanStrs(d.added),hidden:cleanStrs(d.hidden)};renderAll()},()=>{}));
+    for(const id of PRESETS)unsubs.push(onSnapshot(presetRef(id),s=>{state.ready.add(id);state.presets[id]=s.exists()?cleanPreset(s.data()):null;if(state.tab==="place"&&id===state.active&&!state.presets[id])state.current=null;renderAll()},()=>{}));
   }
-  renderAcct();renderAll();
+  renderAcct();renderMigrate();renderAll();
+}
+// ---- 로그인 전에 이 창에서 만든 내용을 계정으로 옮기기 ----
+function renderMigrate(){
+  const box=$("migrate");
+  if(!state.migrate){box.hidden=true;box.innerHTML="";state.migBuilt=false;return}
+  box.hidden=false;
+  if(state.ready.size<1+PRESETS.length){box.innerHTML=`<p>이 창에서 만든 내용을 계정으로 옮길지 확인하고 있어요…</p>`;return}
+  if(state.migBuilt)return;
+  state.migBuilt=true;
+  const g=guestLoad(),acc=state.mine;
+  const gMenu=g.mine.added.length||g.mine.hidden.length,aMenu=acc.added.length||acc.hidden.length;
+  const gIds=PRESETS.filter(id=>g.presets[id]),free=PRESETS.filter(id=>!state.presets[id]);
+  const parts=[];if(gMenu)parts.push("<b>메뉴판</b>");if(gIds.length)parts.push(`<b>식당 프리셋 ${gIds.length}개</b>`);
+  let h=`<p>로그인하기 전에 이 창에서 만든 ${parts.join("과 ")}${gIds.length?"가":"이"} 있어요. 내 계정으로 옮길까요? 옮기지 않으면 계정에는 저장되지 않아요.</p>`;
+  if(gMenu&&aMenu)h+=`<fieldset class="mig"><legend>계정에도 내 메뉴판이 있어요. 어떻게 할까요?</legend>
+    <label><input type="radio" name="migMenu" value="merge" checked><span>합치기 <small>양쪽에서 추가한 메뉴는 모두 넣고, 뺀 메뉴도 모두 빼요</small></span></label>
+    <label><input type="radio" name="migMenu" value="keep"><span>계정 메뉴판 유지 <small>이 창에서 바꾼 메뉴판은 버려요</small></span></label>
+    <label><input type="radio" name="migMenu" value="replace"><span>이 창 메뉴판으로 바꾸기 <small>계정 메뉴판을 덮어써요</small></span></label></fieldset>`;
+  if(gIds.length>free.length){
+    const left=[...free];
+    h+=`<fieldset class="mig"><legend>계정의 프리셋 칸이 부족해요. 이 창의 프리셋을 어디에 넣을지 골라주세요</legend>`;
+    for(const id of gIds){
+      const d=left.shift()||"";
+      const opts=[`<option value="">옮기지 않기</option>`,...PRESETS.map((slot,i)=>{const a=state.presets[slot];return `<option value="${slot}"${slot===d?" selected":""}>${a?`프리셋 ${i+1} '${esc(a.name)}' 대신 넣기`:`비어 있는 프리셋 ${i+1}에 넣기`}</option>`})];
+      h+=`<label class="mig-row"><span>'${esc(g.presets[id].name)}'</span><select data-mig="${id}">${opts.join("")}</select></label>`;
+    }
+    h+=`</fieldset>`;
+  }
+  h+=`<p class="mig-warn" id="migWarn" hidden></p>
+  <div class="row" style="justify-content:flex-end"><button class="btn small" data-migrate-no>옮기지 않기</button><button class="btn small primary" data-migrate-yes>계정으로 옮기기</button></div>`;
+  box.innerHTML=h;
+}
+function migratePlan(){
+  const g=guestLoad(),box=$("migrate"),place={};
+  const sels=[...box.querySelectorAll("select[data-mig]")];
+  if(sels.length){for(const el of sels)if(el.value)place[el.dataset.mig]=el.value}
+  else{
+    // 빈 칸이 충분하면: 같은 번호 칸이 비어 있으면 그 칸에, 아니면 남은 빈 칸에
+    const free=PRESETS.filter(id=>!state.presets[id]);
+    for(const id of PRESETS)if(g.presets[id]&&free.includes(id)){place[id]=id;free.splice(free.indexOf(id),1)}
+    for(const id of PRESETS)if(g.presets[id]&&!place[id])place[id]=free.shift();
+  }
+  const slots=Object.values(place);
+  return {g,place,dup:new Set(slots).size!==slots.length,menu:box.querySelector('input[name="migMenu"]:checked')?.value||"merge"};
+}
+function migrateReset(){
+  const b=$("migrate").querySelector("[data-migrate-yes]");if(!b)return;
+  delete b.dataset.sure;b.textContent="계정으로 옮기기";$("migWarn").hidden=true;
+}
+async function migrateGuest(btn){
+  if(!state.isGoogle)return;
+  const {g,place,dup,menu}=migratePlan(),warn=$("migWarn");
+  if(dup){warn.textContent="같은 칸을 두 번 고를 수 없어요. 칸을 다시 골라주세요.";warn.hidden=false;return}
+  const over=Object.entries(place).filter(([,slot])=>state.presets[slot]);
+  if(over.length&&!btn.dataset.sure){
+    btn.dataset.sure="1";btn.textContent="덮어쓰고 옮기기";
+    warn.textContent=`덮어쓰는 프리셋: ${over.map(([id,slot])=>`프리셋 ${PRESETS.indexOf(slot)+1} '${state.presets[slot].name}' → '${g.presets[id].name}'`).join(", ")}. 원래 프리셋은 되돌릴 수 없어요. 맞으면 한 번 더 눌러주세요.`;
+    warn.hidden=false;return;
+  }
+  const uid=state.user.uid,tasks=[],acc=state.mine;
+  if((g.mine.added.length||g.mine.hidden.length)&&menu!=="keep"){
+    const both=menu==="merge";
+    const added=[...new Set([...(both?acc.added:[]),...g.mine.added])].slice(0,200);
+    const hidden=[...new Set([...(both?acc.hidden:[]),...g.mine.hidden])].filter(m=>DEFAULT_MENUS.includes(m)).slice(0,300);
+    tasks.push(setDoc(doc(db,"users",uid),{added,hidden}));
+  }
+  for(const [id,slot] of Object.entries(place)){
+    const p=g.presets[id];
+    tasks.push(setDoc(presetRef(slot),{name:p.name,origin:p.origin,dong:"",minutes:p.minutes,kinds:p.kinds,items:p.items,skip:p.skip}));
+  }
+  btn.disabled=true;
+  try{
+    await Promise.all(tasks);guestClear();state.migrate=false;renderMigrate();
+    toast(tasks.length?"내 계정으로 옮겼어요":"옮길 내용 없이 마쳤어요");
+  }catch(e){btn.disabled=false;toast("옮기지 못했어요. 잠시 후 다시 해주세요")}
 }
 async function login(){
   try{await signInWithPopup(auth,new GoogleAuthProvider())}
@@ -651,7 +773,7 @@ async function runScan(){
   finally{setup.scanning=false;$("sScan").disabled=false}
 }
 async function saveSetup(){
-  if(!setup.items||setup.dirty||!state.isGoogle)return;
+  if(!setup.items||setup.dirty)return;
   const kinds=[...$("sKinds").querySelectorAll("input:checked")].map(i=>i.value);
   if(!kinds.length){$("sProgress").textContent="종류를 하나 이상 골라주세요.";return}
   const p=preset();
@@ -664,13 +786,13 @@ async function saveSetup(){
     kinds,items:setup.items,skip:sameList?p.skip:[]
   };
   $("sSave").disabled=true;
-  try{await setDoc(presetRef(state.active),data);$("setup").close();state.current=null;toast(`'${data.name}' 저장했어요`)}
+  try{await putPreset(state.active,data);$("setup").close();state.current=null;toast(`'${data.name}' 저장했어요`)}
   catch(e){$("sSave").disabled=false;$("sProgress").textContent="저장하지 못했어요. 잠시 후 다시 해주세요."}
 }
 async function clearPreset(){
   const b=$("sClear");
   if(!b.dataset.sure){b.dataset.sure="1";b.textContent="정말 비울까요? 한 번 더 누르세요";return}
-  try{await deleteDoc(presetRef(state.active));$("setup").close();state.current=null;toast("프리셋을 비웠어요")}
+  try{await removePreset(state.active);$("setup").close();state.current=null;toast("프리셋을 비웠어요")}
   catch(e){toast("비우지 못했어요. 잠시 후 다시 해주세요")}
 }
 
@@ -681,7 +803,7 @@ $("copy").addEventListener("click",copyPick);
 $("menuFilter").addEventListener("input",renderMenus);
 $("placeFilter").addEventListener("input",renderPlaces);
 for(const id of ["menuFilter","placeFilter"])$(id).addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing)e.target.blur()});
-$("menuForm").addEventListener("submit",e=>{e.preventDefault();const v=$("menuName").value.trim();if(!v||!state.isGoogle)return;addMenu(v);$("menuName").value=""});
+$("menuForm").addEventListener("submit",e=>{e.preventDefault();const v=$("menuName").value.trim();if(!v)return;addMenu(v);$("menuName").value=""});
 $("sFind").addEventListener("click",()=>{resolveOrigin();markDirty()});
 $("sScan").addEventListener("click",runScan);
 $("sSave").addEventListener("click",saveSetup);
@@ -692,7 +814,8 @@ $("sOrigin").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing){
 $("sMinutes").addEventListener("change",markDirty);
 $("setupForm").addEventListener("submit",e=>e.preventDefault());
 document.addEventListener("change",e=>{
-  const t=e.target;if(!t.matches?.(".tog[data-skip]"))return;
+  const t=e.target;
+  if(t.closest?.("#migrate")){migrateReset();return}if(!t.matches?.(".tog[data-skip]"))return;
   const p=preset();if(!p)return;
   const k=t.dataset.skip,skip=new Set(p.skip);
   if(t.checked)skip.delete(k);else skip.add(k);
@@ -705,7 +828,9 @@ document.addEventListener("click",e=>{
   if(t.hasAttribute("data-logout")){signOut(auth).then(()=>toast("로그아웃했어요"));return}
   if(t.hasAttribute("data-setup")){openSetup();return}
   if(t.dataset.sort){state.sort=t.dataset.sort;try{localStorage.setItem("sort",state.sort)}catch(err){}renderPlaces();return}
-  if(t.dataset.preset){state.active=t.dataset.preset;state.current=null;try{localStorage.setItem("preset:"+state.user.uid,state.active)}catch(err){}renderAll();return}
+  if(t.dataset.preset){setActive(t.dataset.preset);return}
+  if(t.hasAttribute("data-migrate-yes")){migrateGuest(t);return}
+  if(t.hasAttribute("data-migrate-no")){try{sessionStorage.setItem(GUEST_SKIP,"1")}catch(err){}state.migrate=false;renderMigrate();toast("옮기지 않았어요. 로그아웃하면 이 창에서 만든 내용을 다시 볼 수 있어요");return}
   if(t.dataset.delMenu!=null){removeMenu(t.dataset.delMenu);return}
   if(t.dataset.restoreMenu!=null){const v=t.dataset.restoreMenu;saveMine({added:state.mine.added,hidden:state.mine.hidden.filter(x=>x!==v)});toast(`'${v}' 되돌렸어요`);return}
   if(t.dataset.ask){state.confirming=t.dataset.ask;renderAll();return}
