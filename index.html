@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="점심 메뉴·맛집 뽑기">
+<meta name="description" content="점심 메뉴·식당 뽑기">
 <title>점메추</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -105,6 +105,16 @@ ul.items .x{width:26px;height:26px;font-size:15px}
 .tools{display:flex;flex-direction:column;gap:10px;border-top:1px dashed var(--line);padding-top:12px}
 .tools .row{justify-content:flex-start}
 .tools label{font-size:13px;color:var(--muted)}
+.findrow{display:flex;gap:8px}
+.findrow .filter{flex:1 1 auto;width:auto}
+.tog{appearance:none;-webkit-appearance:none;width:42px;height:24px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;flex:none;margin:0;transition:background .15s}
+.tog::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0 / .25);transition:transform .15s}
+.tog:checked{background:var(--yolk)}
+.tog:checked::after{transform:translateX(18px)}
+.tog:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
+ul.places .tog{grid-row:1 / span 2;grid-column:2;margin-right:6px}
+ul.places li.skip .pname,ul.places li.skip .pinfo{opacity:.45}
+@media (prefers-reduced-motion: reduce){.tog,.tog::after{transition:none}}
 </style>
 </head>
 <body>
@@ -121,7 +131,7 @@ ul.items .x{width:26px;height:26px;font-size:15px}
 
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-menu" aria-selected="true" data-tab="menu">메뉴 추천</button>
-    <button role="tab" id="tab-place" aria-selected="false" data-tab="place">맛집 추천</button>
+    <button role="tab" id="tab-place" aria-selected="false" data-tab="place">회사 근처 식당 추천</button>
   </div>
 
   <div class="plate" id="plate" aria-live="polite">
@@ -140,10 +150,13 @@ ul.items .x{width:26px;height:26px;font-size:15px}
     <div class="list-head"><h2>메뉴판</h2><span class="count" id="menuCount"></span></div>
     <p class="note" id="menuNote"></p>
     <form class="add" id="menuForm" hidden>
-      <input id="menuName" name="name" placeholder="메뉴 이름 (예: 김치볶음밥)" maxlength="40" autocomplete="off">
+      <input id="menuName" name="name" placeholder="추가하고 싶은 메뉴 이름을 적어주세요!" maxlength="40" autocomplete="off">
       <button class="btn" type="submit">추가</button>
     </form>
-    <input class="filter" id="menuFilter" placeholder="메뉴 찾기" autocomplete="off">
+    <form class="findrow" id="menuFind" role="search">
+      <input class="filter" id="menuFilter" placeholder="메뉴 찾기" autocomplete="off" aria-label="메뉴 찾기">
+      <button class="btn" type="submit">검색</button>
+    </form>
     <ul class="items" id="menuList"></ul>
     <div class="reset" id="menuReset"></div>
   </section>
@@ -159,17 +172,12 @@ ul.items .x{width:26px;height:26px;font-size:15px}
       <p class="pwmsg" id="pwMsg" role="alert"></p>
     </div>
     <div class="list" id="placeBody" hidden>
-      <div class="list-head"><h2>회사 근처 맛집</h2><span class="count" id="placeCount"></span></div>
-      <form class="add" id="placeForm">
-        <label class="addlabel" for="placeName">맛집 추가하기</label>
-        <div class="searchrow">
-          <input id="placeName" name="name" placeholder="가게 이름 (예: 미돈)" maxlength="40" autocomplete="off">
-          <button class="btn" type="button" id="placeSearch" disabled>검색</button>
-        </div>
-        <ul class="results" id="placeResults" hidden></ul>
-        <p class="hint" id="placeHint">가게 이름을 넣고 검색한 뒤, 맞는 가게를 누르면 바로 추가돼요.</p>
+      <div class="list-head"><h2>회사 근처 식당</h2><span class="count" id="placeCount"></span></div>
+      <p class="note">뽑기에서 빼고 싶은 식당은 스위치를 꺼두세요. 내 설정은 나에게만 적용돼요.</p>
+      <form class="findrow" id="placeFind" role="search">
+        <input class="filter" id="placeFilter" placeholder="식당·종류 찾기" autocomplete="off" aria-label="식당 찾기">
+        <button class="btn" type="submit">검색</button>
       </form>
-      <input class="filter" id="placeFilter" placeholder="가게·종류 찾기" autocomplete="off">
       <ul class="places" id="placeList"></ul>
       <div id="adminTools"></div>
     </div>
@@ -191,7 +199,8 @@ const state={
   user:null,isGoogle:false,isAdmin:false,
   mine:{added:[],hidden:[]},             // 내 메뉴판: 추가한 메뉴, 숨긴 기본 메뉴
   places:[],placeAccess:"locked",       // locked | loading | open
-  hasDefault:null,confirming:null,scan:null
+  skip:new Set(),                       // 내가 뽑기에서 뺀 식당
+  confirming:null,scan:null
 };
 const $=id=>document.getElementById(id);
 const ko=(a,b)=>a.localeCompare(b,"ko");
@@ -203,6 +212,8 @@ function menus(){
   return [...base,...extra].sort(ko);
 }
 const places=()=>state.places;
+const placeKey=p=>p.url||p.name;
+const SITE_URL="https://r4nbbit.github.io/lunch-gacha/";
 function todayKST(){const d=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Seoul",weekday:"short"}).format(new Date());return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(d)}
 function linkOf(p){return p.url||mapLink(p.name)}
 function mapLink(name){const q=/위례/.test(name)?name:name+" 위례";return "https://map.kakao.com/link/search/"+encodeURIComponent(q)}
@@ -222,7 +233,7 @@ function setTab(t){
 function draw(){
   const t=state.tab;let pool;
   if(t==="menu")pool=menus();
-  else{if(state.placeAccess!=="open")return;const d=todayKST();pool=places().filter(p=>p.off!==d)}
+  else{if(state.placeAccess!=="open")return;const d=todayKST();pool=places().filter(p=>p.off!==d&&!state.skip.has(placeKey(p)))}
   if(!pool.length){state.current=null;renderPlate("목록이 비어 있어요");return}
   let pick;const last=state.last[t];
   for(let i=0;i<8;i++){pick=pool[Math.floor(Math.random()*pool.length)];if(pool.length<2||(t==="menu"?pick!==last:pick.name!==last?.name))break}
@@ -248,7 +259,8 @@ function renderOffNote(){
 }
 async function copyPick(){
   const c=state.current;if(!c)return;
-  const text=state.tab==="menu"?`🍽️ 오늘 점심 메뉴: ${c}`:`🍽️ 오늘 점심은 ${c.name}!${c.cat?` (${c.cat})`:""}\n📍 ${c.addr||""}\n${linkOf(c)}`;
+  const body=state.tab==="menu"?`🍽️ 오늘 점심 메뉴: ${c}`:`🍽️ 오늘 점심은 ${c.name}!${c.cat?` (${c.cat})`:""}\n📍 ${c.addr||""}\n${linkOf(c)}`;
+  const text=`${body}\n\n🎰 나도 점심 뽑아보기 👉 ${SITE_URL}`;
   try{await navigator.clipboard.writeText(text);toast("복사됐어요")}
   catch(e){const r=document.createRange();r.selectNodeContents($("plate"));const s=getSelection();s.removeAllRanges();s.addRange(r);toast("복사가 막혀 있어서 선택만 해뒀어요. 길게 눌러 복사하세요")}
 }
@@ -297,35 +309,30 @@ function renderPlaces(){
   if(!open){renderTools();return}
   const all=[...places()].sort((a,b)=>(a.dist??9999)-(b.dist??9999)),q=$("placeFilter").value.trim(),d=todayKST();
   const shown=q?all.filter(p=>(p.name+" "+(p.cat||"")).includes(q)):all;
-  $("placeCount").textContent=`${all.length}곳`;
+  const inPool=all.filter(p=>!state.skip.has(placeKey(p))).length;
+  $("placeCount").textContent=`${all.length}곳 · 뽑기 ${inPool}곳`;
   $("placeList").innerHTML=shown.length?shown.map(p=>{
-    const off=p.off!=null&&p.off!=="";const isOff=off&&p.off===d;
-    return `<li class="${isOff?"off":""}"><span class="pname"><a href="${esc(linkOf(p))}" target="_blank" rel="noopener">${esc(p.name)}</a></span>
+    const off=p.off!=null&&p.off!=="";const isOff=off&&p.off===d;const key=placeKey(p);const skipped=state.skip.has(key);
+    return `<li class="${isOff?"off":""}${skipped?" skip":""}"><span class="pname"><a href="${esc(linkOf(p))}" target="_blank" rel="noopener">${esc(p.name)}</a></span>
     <span class="pinfo">${[p.cat,p.dist?p.dist+"m":"",off?DAYS[p.off]+"요일 휴무"+(isOff?" (오늘)":""):"",p.addr].filter(Boolean).map(esc).join(" · ")}</span>
-    <button class="x" data-del-place="${esc(p.name)}" aria-label="${esc(p.name)} 삭제">×</button></li>`}).join(""):`<li class="empty">${q?"찾는 가게가 없어요":"가게가 비어 있어요. 위에서 추가해보세요"}</li>`;
+    <input type="checkbox" class="tog" role="switch" data-skip="${esc(key)}" ${skipped?"":"checked"} aria-label="${esc(p.name)} 뽑기에 넣기"></li>`}).join(""):`<li class="empty">${q?"찾는 식당이 없어요":"아직 등록된 식당이 없어요"}</li>`;
   renderTools();
 }
 // 관리자 도구: 관리자 계정일 때만 화면에 만들어짐
 function renderTools(){
   const box=$("adminTools");
   if(!state.isAdmin||state.placeAccess!=="open"){box.innerHTML="";return}
-  const c=state.confirming;
-  let html=`<div class="tools">`;
-  const sc=state.scan;
+  const sc=state.scan;let html=`<div class="tools">`;
   if(sc&&sc.running)html+=`<p class="note">창곡동 음식점을 찾는 중이에요… 지금까지 ${sc.count}곳</p>`;
-  else if(sc&&sc.items)html+=`<div class="confirm">걸어서 20분 이내(직선 ${(SCAN_RADIUS/1000).toFixed(1)}km) 창곡동 음식점 ${sc.items.length}곳을 찾았어요. 지금 목록(${places().length}곳)을 이 목록으로 바꿀까요? 기본 목록도 함께 바뀌어요.<button class="btn small danger" data-yes="scan">바꾸기</button><button class="btn small" data-scan-cancel>취소</button></div>`;
-  else if(c==="place")html+=`<div class="confirm">맛집 목록을 기본 목록으로 되돌릴까요? 추가·삭제한 내용이 모두 사라져요.<button class="btn small danger" data-yes="place">되돌리기</button><button class="btn small" data-no>취소</button></div>`;
-  else if(c==="setdefault")html+=`<div class="confirm">지금 맛집 목록(${places().length}곳)을 기본 목록으로 저장할까요? 초기화하면 이 목록으로 돌아가요.<button class="btn small danger" data-yes="setdefault">저장</button><button class="btn small" data-no>취소</button></div>`;
-  else html+=`<div class="row"><button class="btn small" data-ask="place" ${state.hasDefault?"":"disabled"}>맛집 초기화</button><button class="btn small" data-ask="setdefault">지금 목록을 기본 목록으로 저장</button><button class="btn small" data-scan ${kk.places&&kk.center?"":"disabled"}>창곡동 음식점 불러오기</button></div>`;
-  if(state.hasDefault===false)html+=`<label for="importFile">기본 맛집 목록이 아직 없어요. 목록 파일(JSON)을 골라 등록하세요.</label><input id="importFile" type="file" accept=".json,application/json">`;
+  else if(sc&&sc.items)html+=`<div class="confirm">걸어서 20분 이내(직선 ${(SCAN_RADIUS/1000).toFixed(1)}km) 창곡동 음식점 ${sc.items.length}곳을 찾았어요. 지금 목록(${places().length}곳)을 이 목록으로 바꿀까요?<button class="btn small danger" data-yes="scan">바꾸기</button><button class="btn small" data-scan-cancel>취소</button></div>`;
+  else html+=`<div class="row"><button class="btn small" data-scan ${kk.places&&kk.center?"":"disabled"}>창곡동 음식점 불러오기</button></div>`;
   box.innerHTML=html+`</div>`;
 }
 
 function renderAll(){
   renderMenus();renderPlaces();renderPlate();renderOffNote();
   const n=$("syncNote");
-  if(state.tab==="place"&&state.placeAccess==="open")n.textContent="맛집 목록은 회사 사람들이 함께 고쳐요. 누가 고치면 바로 반영돼요.";
-  else n.textContent="";
+  n.textContent="";
 }
 
 // ---- Firebase ----
@@ -339,7 +346,7 @@ const firebaseConfig={
 };
 const cleanStrs=v=>Array.isArray(v)?v.filter(m=>typeof m==="string"&&m.trim()):[];
 const cleanPlaces=v=>Array.isArray(v)?v.filter(p=>p&&typeof p.name==="string"&&p.name.trim()):[];
-let db,auth,unsubMine=null,unsubPlaces=null;
+let db,auth,unsubMine=null,unsubPlaces=null,unsubPrefs=null;
 const queue={};
 function enqueue(k,fn){queue[k]=(queue[k]||Promise.resolve()).then(fn)}
 
@@ -347,6 +354,11 @@ function saveMine(next){
   state.mine=next;renderAll();
   const uid=state.user?.uid;if(!uid)return;
   enqueue("mine",()=>setDoc(doc(db,"users",uid),next).catch(()=>toast("저장하지 못했어요. 잠시 후 다시 해보세요")));
+}
+function saveSkip(){
+  const uid=state.user?.uid;renderAll();if(!uid)return;
+  const skip=[...state.skip];
+  enqueue("prefs",()=>setDoc(doc(db,"prefs",uid),{skip}).catch(()=>toast("저장하지 못했어요. 잠시 후 다시 해보세요")));
 }
 function savePlaces(items){
   state.places=items;renderAll();
@@ -356,7 +368,7 @@ function savePlaces(items){
 async function handleUser(u){
   state.user=u;
   state.isGoogle=!!u&&u.providerData.some(p=>p.providerId==="google.com");
-  state.isAdmin=false;state.hasDefault=null;state.confirming=null;
+  state.isAdmin=false;state.confirming=null;
   unsubMine?.();unsubMine=null;state.mine={added:[],hidden:[]};
   if(state.isGoogle){
     unsubMine=onSnapshot(doc(db,"users",u.uid),s=>{const d=s.exists()?s.data():{};state.mine={added:cleanStrs(d.added),hidden:cleanStrs(d.hidden)};renderAll()},()=>{});
@@ -366,12 +378,13 @@ async function handleUser(u){
 }
 function connectPlaces(){
   unsubPlaces?.();unsubPlaces=null;
+  unsubPrefs?.();unsubPrefs=null;state.skip=new Set();
   if(!state.user){state.placeAccess="locked";state.places=[];renderAll();return}
+  unsubPrefs=onSnapshot(doc(db,"prefs",state.user.uid),s=>{state.skip=new Set(s.exists()?cleanStrs(s.data().skip):[]);renderAll()},()=>{});
   state.placeAccess="loading";renderAll();
   unsubPlaces=onSnapshot(doc(db,"places","current"),
     s=>{state.placeAccess="open";state.places=s.exists()?cleanPlaces(s.data().items):[];renderAll()},
     ()=>{state.placeAccess="locked";state.places=[];renderAll()});
-  if(state.isAdmin)getDoc(doc(db,"places","default")).then(s=>{state.hasDefault=s.exists();renderAll()}).catch(()=>{});
 }
 
 async function submitPassword(pw){
@@ -390,7 +403,7 @@ async function login(){
   try{
     const u=auth.currentUser;
     if(u&&u.isAnonymous){
-      // 비밀번호로 들어온 이 기기 계정에 구글 계정을 이어 붙여서, 맛집 권한을 그대로 유지
+      // 비밀번호로 들어온 이 기기 계정에 구글 계정을 이어 붙여서, 식당 탭 권한을 그대로 유지
       try{await linkWithPopup(u,provider);await u.getIdToken(true);await handleUser(auth.currentUser)}
       catch(e){
         if(e?.code!=="auth/credential-already-in-use")throw e;
@@ -401,31 +414,6 @@ async function login(){
   }catch(e){
     if(e?.code!=="auth/popup-closed-by-user"&&e?.code!=="auth/cancelled-popup-request")toast("로그인하지 못했어요. 팝업 차단을 확인해주세요");
   }
-}
-
-async function resetPlaces(){
-  try{
-    const s=await getDoc(doc(db,"places","default"));
-    if(!s.exists()){toast("기본 맛집 목록이 아직 없어요");return}
-    savePlaces(cleanPlaces(s.data().items));toast("기본 목록으로 되돌렸어요");
-  }catch(e){toast("되돌리지 못했어요")}
-}
-async function saveAsDefault(){
-  try{await setDoc(doc(db,"places","default"),{items:places()});state.hasDefault=true;renderAll();toast("기본 목록으로 저장했어요")}
-  catch(e){toast("저장하지 못했어요")}
-}
-async function importDefault(file){
-  try{
-    const items=cleanPlaces(JSON.parse(await file.text())).map(p=>{
-      const o={name:String(p.name).trim(),cat:String(p.cat||""),addr:String(p.addr||""),dist:Number.isFinite(p.dist)?p.dist:null,off:Number.isInteger(p.off)?p.off:null};
-      if(p.url)o.url=String(p.url);return o;
-    });
-    if(!items.length){toast("파일에 가게가 없어요");return}
-    await setDoc(doc(db,"places","default"),{items});
-    state.hasDefault=true;
-    if(!places().length)savePlaces(items);else renderAll();
-    toast(`기본 목록 ${items.length}곳을 등록했어요`);
-  }catch(e){toast("파일을 읽지 못했어요. JSON 파일인지 확인해주세요")}
 }
 
 function initFirebase(){
@@ -443,11 +431,10 @@ const ALLOWED_AREA=/성남시\s*수정구\s*창곡동/;
 const inArea=d=>ALLOWED_AREA.test(d.address_name||"");
 function initKakao(){
   const k=window.kakao;
-  if(!k||!k.maps||!k.maps.load){$("placeHint").textContent="지금은 가게 검색에 연결되지 않아서 가게를 추가할 수 없어요.";return}
+  if(!k||!k.maps||!k.maps.load)return;
   k.maps.load(()=>{
     kk.places=new k.maps.services.Places();
     new k.maps.services.Geocoder().addressSearch(OFFICE_ADDR,(r,st)=>{if(st===k.maps.services.Status.OK&&r[0]){kk.center=new k.maps.LatLng(Number(r[0].y),Number(r[0].x));renderTools()}});
-    $("placeSearch").disabled=false;
   });
 }
 // ---- 관리자: 회사 주변 창곡동 음식점 한꺼번에 불러오기 ----
@@ -511,40 +498,10 @@ async function scanArea(){
 async function applyScan(){
   const items=state.scan?.items;state.scan=null;
   if(!items||!state.isAdmin){renderAll();return}
-  try{
-    await setDoc(doc(db,"places","default"),{items});state.hasDefault=true;
-    savePlaces(items);toast(`${items.length}곳으로 바꿨어요`);
-  }catch(e){renderAll();toast(e?.code==="permission-denied"?"저장이 거부됐어요. 보안 규칙을 최신으로 게시했는지 확인해주세요":"저장하지 못했어요")}
+  try{await setDoc(doc(db,"places","current"),{items});toast(`${items.length}곳으로 바꿨어요`)}
+  catch(e){renderAll();toast(e?.code==="permission-denied"?"저장이 거부됐어요. 보안 규칙을 최신으로 게시했는지 확인해주세요":"저장하지 못했어요")}
 }
-function hideResults(){$("placeResults").hidden=true;$("placeResults").innerHTML=""}
 function catOf(c){const parts=String(c||"").split(">").map(x=>x.trim()).filter(Boolean);return parts.length>1?parts.slice(1).join(" · "):(parts[0]||"")}
-let lastResults=[];
-function searchPlace(){
-  const q=$("placeName").value.trim(),box=$("placeResults");
-  if(!q||!kk.places||state.placeAccess!=="open")return;
-  box.hidden=false;box.innerHTML=`<li class="rmsg">찾는 중…</li>`;
-  const k=window.kakao,S=k.maps.services;
-  const opt={size:8};
-  if(kk.center){opt.location=kk.center;opt.radius=3000;opt.sort=S.SortBy.DISTANCE}
-  kk.places.keywordSearch(q,(data,status)=>{
-    if(status===S.Status.ZERO_RESULT){box.innerHTML=`<li class="rmsg">창곡동에서 그 가게를 찾지 못했어요. 이름을 다시 확인해주세요.</li>`;return}
-    if(status!==S.Status.OK){box.innerHTML=`<li class="rmsg">검색이 안 돼요. 잠시 후 다시 해주세요.</li>`;return}
-    data=data.filter(inArea);
-    if(!data.length){box.innerHTML=`<li class="rmsg">창곡동에 있는 가게만 추가할 수 있어요. 검색 결과가 모두 다른 동네예요.</li>`;return}
-    lastResults=data;
-    box.innerHTML=data.map((d,i)=>`<li><button type="button" data-pick="${i}"><span class="rn">${esc(d.place_name)}</span><span class="rd">${d.distance?Number(d.distance).toLocaleString()+"m":""}</span><span class="ra">${esc(catOf(d.category_name))}${d.category_name?" · ":""}${esc(d.road_address_name||d.address_name||"")}</span></button></li>`).join("");
-  },opt);
-}
-function pickResult(i){
-  const d=lastResults[i];if(!d)return;
-  if(!inArea(d)){toast("창곡동에 있는 가게만 추가할 수 있어요");return}
-  const name=d.place_name;
-  if(places().some(p=>p.name===name||(d.place_url&&p.url===d.place_url))){toast("이미 있는 가게예요");return}
-  const item={name,cat:catOf(d.category_name),addr:d.road_address_name||d.address_name||"",dist:d.distance?Number(d.distance):null,off:null};
-  if(d.place_url)item.url=d.place_url;
-  savePlaces([...places(),item]);
-  $("placeName").value="";hideResults();toast(`'${name}' 추가했어요`);
-}
 
 // ---- events ----
 document.querySelector(".tabs").addEventListener("click",e=>{const t=e.target.closest("[data-tab]");if(t)setTab(t.dataset.tab)});
@@ -553,26 +510,28 @@ $("copy").addEventListener("click",copyPick);
 $("menuFilter").addEventListener("input",renderMenus);
 $("placeFilter").addEventListener("input",renderPlaces);
 $("menuForm").addEventListener("submit",e=>{e.preventDefault();const v=$("menuName").value.trim();if(!v||!state.isGoogle)return;addMenu(v);$("menuName").value=""});
-$("placeForm").addEventListener("submit",e=>{e.preventDefault();searchPlace()});
-$("placeSearch").addEventListener("click",searchPlace);
-$("placeResults").addEventListener("click",e=>{const b=e.target.closest("[data-pick]");if(b)pickResult(Number(b.dataset.pick))});
+$("menuFind").addEventListener("submit",e=>{e.preventDefault();renderMenus();$("menuFilter").blur()});
+$("placeFind").addEventListener("submit",e=>{e.preventDefault();renderPlaces();$("placeFilter").blur()});
 $("pwForm").addEventListener("submit",e=>{e.preventDefault();submitPassword($("pwInput").value)});
-document.addEventListener("change",e=>{if(e.target.id==="importFile"&&e.target.files[0]&&state.isAdmin)importDefault(e.target.files[0])});
+document.addEventListener("change",e=>{
+  const t=e.target;if(!t.classList?.contains("tog"))return;
+  const key=t.dataset.skip;
+  if(t.checked)state.skip.delete(key);else state.skip.add(key);
+  if(state.current&&placeKey(state.current)===key&&!t.checked){state.current=null}
+  saveSkip();
+});
 document.addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;
   if(t.hasAttribute("data-login")){login();return}
   if(t.hasAttribute("data-logout")){signOut(auth).then(()=>toast("로그아웃했어요"));return}
   if(t.dataset.delMenu!=null){removeMenu(t.dataset.delMenu);return}
-  if(t.dataset.delPlace!=null){const v=t.dataset.delPlace;savePlaces(places().filter(p=>p.name!==v));if(state.current?.name===v){state.current=null;renderPlate()}toast(`'${v}' 뺐어요`);return}
-  if(t.dataset.ask){if(t.dataset.ask!=="menu"&&!state.isAdmin)return;state.confirming=t.dataset.ask;renderAll();return}
+  if(t.dataset.ask==="menu"){state.confirming="menu";renderAll();return}
   if(t.hasAttribute("data-scan")){scanArea();return}
   if(t.hasAttribute("data-scan-cancel")){state.scan=null;renderAll();return}
   if(t.hasAttribute("data-no")){state.confirming=null;renderAll();return}
   if(t.dataset.yes){
     const k=t.dataset.yes;state.confirming=null;
     if(k==="menu"){saveMine({added:[],hidden:[]});toast("기본 메뉴판으로 되돌렸어요")}
-    else if(k==="place"&&state.isAdmin)resetPlaces();
-    else if(k==="setdefault"&&state.isAdmin)saveAsDefault();
     else if(k==="scan"&&state.isAdmin)applyScan();
     else renderAll();
   }

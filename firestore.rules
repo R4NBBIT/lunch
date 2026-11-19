@@ -48,16 +48,18 @@ service cloud.firestore {
         && request.resource.data.pw == password();
     }
 
-    // 맛집 목록: 비밀번호를 맞힌 사람과 관리자
+    // 식당 목록: 비밀번호를 맞힌 사람은 보기만, 바꾸기는 관리자만
     match /places/current {
       allow read: if isMember() || isAdmin();
-      allow create, update: if (isMember() || isAdmin()) && validItems(request.resource.data);
+      allow create, update: if isAdmin() && validItems(request.resource.data);
     }
 
-    // 기본 맛집 목록(초기화용): 관리자만
-    match /places/default {
-      allow read: if isAdmin();
-      allow create, update: if isAdmin() && validItems(request.resource.data);
+    // 내 뽑기 설정: 뽑기에서 뺀 식당 목록 (본인만)
+    match /prefs/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['skip'])
+        && request.resource.data.skip is list && request.resource.data.skip.size() <= 1000;
     }
 
     // 관리자 확인용 (화면에서 관리자 기능을 보여줄지 판단)
