@@ -458,27 +458,34 @@ function meters(lat1,lng1,lat2,lng2){
   const a=Math.sin(dLat/2)**2+Math.cos(toR(lat1))*Math.cos(toR(lat2))*Math.sin(dLng/2)**2;
   return 2*R*Math.asin(Math.sqrt(a));
 }
-// 카카오는 한 번에 최대 45곳만 알려줘서, 넘치면 구역을 4등분해서 다시 찾음
-function scanRect(sw,ne,found,depth){
+// 카카오는 한 번에 최대 45곳만 알려주고, 전체 개수도 45까지만 알려줌.
+// 그래서 45곳이 꽉 차면 구역을 4등분해서 다시 찾음 (동시에 최대 4개씩 요청)
+let scanSlots=4;const scanWait=[];
+async function scanTurn(fn){
+  if(scanSlots<=0)await new Promise(r=>scanWait.push(r));else scanSlots--;
+  try{return await fn()}finally{const next=scanWait.shift();if(next)next();else scanSlots++}
+}
+function scanQuery(sw,ne){
   const k=window.kakao,S=k.maps.services;
   const bounds=new k.maps.LatLngBounds(new k.maps.LatLng(sw[0],sw[1]),new k.maps.LatLng(ne[0],ne[1]));
   return new Promise(resolve=>{
-    let first=true;
-    const cb=async(data,status,pg)=>{
-      if(status!==S.Status.OK){resolve();return}
-      if(first&&pg.totalCount>45&&depth<6){
-        first=false;
-        const mLat=(sw[0]+ne[0])/2,mLng=(sw[1]+ne[1])/2;
-        for(const [a,b] of [[sw,[mLat,mLng]],[[sw[0],mLng],[mLat,ne[1]]],[[mLat,sw[1]],[ne[0],mLng]],[[mLat,mLng],ne]])await scanRect(a,b,found,depth+1);
-        resolve();return;
-      }
-      first=false;
-      for(const d of data)found.set(d.id,d);
-      state.scan.count=found.size;renderTools();
-      if(pg.hasNextPage)pg.nextPage();else resolve();
+    const rows=[];let total=0;
+    const cb=(data,status,pg)=>{
+      if(status!==S.Status.OK){resolve({rows,total});return}
+      total=pg.totalCount;rows.push(...data);
+      if(pg.hasNextPage)pg.nextPage();else resolve({rows,total});
     };
     kk.places.categorySearch("FD6",cb,{bounds});
   });
+}
+async function scanRect(sw,ne,found,depth){
+  const {rows,total}=await scanTurn(()=>scanQuery(sw,ne));
+  for(const d of rows)found.set(d.id,d);
+  state.scan.count=found.size;renderTools();
+  if(total>=45&&depth<8){
+    const mLat=(sw[0]+ne[0])/2,mLng=(sw[1]+ne[1])/2;
+    await Promise.all([[sw,[mLat,mLng]],[[sw[0],mLng],[mLat,ne[1]]],[[mLat,sw[1]],[ne[0],mLng]],[[mLat,mLng],ne]].map(([a,b])=>scanRect(a,b,found,depth+1)));
+  }
 }
 async function scanArea(){
   if(!state.isAdmin||!kk.places||!kk.center)return;
