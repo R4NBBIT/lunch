@@ -252,6 +252,11 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   </div></dialog>
   <dialog class="setup mig-dlg" id="migDlg" aria-labelledby="migTitle"><div id="migrate"></div></dialog>
 
+  <div class="callout" id="samsungTip" hidden>
+    <p><b>색이 이상하게 보이나요?</b> 삼성 브라우저의 어두운 화면 모드가 점메추의 색을 바꿔서 그래요. 브라우저 <b>설정 → 웹페이지 보기 및 스크롤 방식 → 어두운 화면 모드</b>를 끄면 원래 색으로 보여요. 어두운 화면은 점메추 오른쪽 위 버튼으로 따로 고를 수 있어요.</p>
+    <button class="btn small" type="button" id="samsungTipClose">알겠어요</button>
+  </div>
+
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-menu" aria-selected="true" data-tab="menu">메뉴 추천</button>
     <button role="tab" id="tab-place" aria-selected="false" data-tab="place">식당 추천</button>
@@ -1005,6 +1010,9 @@ document.addEventListener("click",e=>{
 
 try{if(localStorage.getItem("sort")==="name")state.sort="name"}catch(e){}
 let startTab="menu";try{if(localStorage.getItem("tab")==="place")startTab="place"}catch(e){}
+// 삼성 브라우저(Samsung Internet): 어두운 화면 모드가 사이트 색을 강제로 바꿔서, 처음 한 번만 안내해요
+try{if(/SamsungBrowser/i.test(navigator.userAgent)&&localStorage.getItem("samsungTip")!=="1")$("samsungTip").hidden=false}catch(e){}
+$("samsungTipClose").addEventListener("click",()=>{$("samsungTip").hidden=true;try{localStorage.setItem("samsungTip","1")}catch(e){}});
 setTab(startTab);initFirebase();initKakao();
 </script>
 </body>
