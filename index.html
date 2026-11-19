@@ -199,13 +199,15 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 .opick{display:flex;flex-direction:column;gap:6px}
 .opick .ohead{font-size:13px;font-weight:700;margin:0}
 .opick .ohint{font-size:12px;color:var(--muted);margin:0;word-break:keep-all}
-.opick ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:260px}
+.opick ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow-y:auto;overscroll-behavior:contain;height:280px}
+.opick ul:has(li:nth-child(4):last-child),.opick ul:not(:has(li:nth-child(5))){height:auto}
+.opick .ocount{font-weight:500;color:var(--muted);font-size:12px;margin-left:4px}
 .opick li+li{border-top:1px solid var(--line)}
 .opick li button{font:inherit;width:100%;text-align:left;background:var(--surface);color:var(--fg);border:0;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
 .opick li button:hover,.opick li button:focus-visible{background:var(--yolk-soft)}
 .opick .on{font-size:14px;font-weight:700}
 .opick .oa{font-size:12px;color:var(--muted)}
-.opick .omore{align-self:center}
+
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 .seg label{position:relative}
 .seg input{position:absolute;opacity:0;pointer-events:none}
@@ -773,11 +775,13 @@ function findOrigins(q){
   const S=window.kakao.maps.services;
   return new Promise(res=>{
     kk.geo.addressSearch(q,(r,st)=>{
-      if(st===S.Status.OK&&r.length)return res({list:r.map(a=>({name:a.road_address?.address_name||a.address_name,addr:a.road_address&&a.address_name!==a.road_address.address_name?a.address_name:"",label:a.road_address?.address_name||a.address_name,lat:Number(a.y),lng:Number(a.x)})),total:r.length,next:null});
+      if(st===S.Status.OK&&r.length)return res({list:r.map(a=>({name:a.road_address?.address_name||a.address_name,addr:a.road_address&&a.address_name!==a.road_address.address_name?a.address_name:"",label:a.road_address?.address_name||a.address_name,lat:Number(a.y),lng:Number(a.x)})),total:r.length});
       kk.places.keywordSearch(q,(d,st2,pg)=>{
         if(st2!==S.Status.OK||!d.length)return res(null);
         const conv=arr=>arr.map(x=>{const ad=x.road_address_name||x.address_name;return {name:x.place_name,addr:ad,label:`${x.place_name} (${ad})`,lat:Number(x.y),lng:Number(x.x)}});
-        res({list:conv(d),total:pg?.totalCount||d.length,more:pg?.hasNextPage?(page=>new Promise(r2=>kk.places.keywordSearch(q,(d2,s3,pg2)=>r2({list:s3===S.Status.OK?conv(d2):[],hasMore:!!pg2?.hasNextPage}),{page}))):null});
+        const total=pg?.totalCount||d.length,last=Math.min(3,Math.max(1,pg?.last||Math.ceil(total/15)));
+        const rest=[];for(let n=2;n<=last;n++)rest.push(new Promise(r2=>kk.places.keywordSearch(q,(d2,s3)=>r2(s3===S.Status.OK?conv(d2):[]),{page:n})));
+        Promise.all(rest).then(more=>res({list:[...conv(d),...more.flat()],total}));
       });
     });
   });
@@ -854,20 +858,20 @@ function openSetup(){
   $("sClear").hidden=!p;
   $("setup").showModal();
 }
-const originPick={q:"",list:[],more:null,page:1};
+// 출발 위치 후보: 한 번에 다 보여주고, 고정된 칸 안에서 스크롤해요
+const originPick={q:"",list:[],total:0};
 function pickOrigin(o){
   setup.origin={...o,query:originPick.q};
   $("sOriginList").hidden=true;$("sOriginList").innerHTML="";
   const msg=$("sOriginMsg");msg.className="resolved";msg.textContent=`✓ ${o.label}`;
   markDirty();
 }
-function renderOriginList(total){
-  const box=$("sOriginList");
-  box.innerHTML=`<p class="ohead">어느 곳인가요? 한 곳을 골라주세요</p>
-    ${total>15?`<p class="ohint">결과가 ${total>=45?"45곳 넘게":total+"곳"} 있어요. 동네 이름을 같이 적으면 더 정확해요 (예: e편한세상 위례)</p>`:""}
-    <ul>${originPick.list.map((o,i)=>`<li><button type="button" data-oi="${i}"><span class="on">${esc(o.name)}</span>${o.addr?`<span class="oa">${esc(o.addr)}</span>`:""}</button></li>`).join("")}</ul>
-    ${originPick.more?`<button type="button" class="btn small omore" data-omore>더 보기</button>`:""}`;
-  box.hidden=false;
+function renderOriginList(){
+  const box=$("sOriginList"),o=originPick;
+  box.innerHTML=`<p class="ohead">어느 곳인가요? 한 곳을 골라주세요 <span class="ocount">${o.list.length}곳</span></p>
+    ${o.total>15?`<p class="ohint">동네 이름을 같이 적으면 더 정확해요 (예: e편한세상 위례)${o.total>o.list.length?`. 카카오가 알려주는 ${o.list.length}곳까지만 보여요`:""}</p>`:""}
+    <ul>${o.list.map((x,i)=>`<li><button type="button" data-oi="${i}"><span class="on">${esc(x.name)}</span>${x.addr?`<span class="oa">${esc(x.addr)}</span>`:""}</button></li>`).join("")}</ul>`;
+  box.hidden=false;box.querySelector("ul").scrollTop=0;
 }
 async function resolveOrigin(){
   const q=$("sOrigin").value.trim(),msg=$("sOriginMsg");
@@ -877,10 +881,10 @@ async function resolveOrigin(){
   msg.className="resolved";msg.textContent="찾는 중…";
   const r=await findOrigins(q);
   if(!r){msg.className="resolved bad";msg.textContent="그 위치를 찾지 못했어요. 도로명 주소나 건물 이름으로 다시 적어주세요.";return null}
-  originPick.q=q;originPick.list=r.list;originPick.more=r.more;originPick.page=1;
+  Object.assign(originPick,{q,list:r.list,total:r.total});
   if(r.list.length===1){pickOrigin(r.list[0]);return setup.origin}
   setup.origin=null;msg.className="resolved bad";msg.textContent="같은 이름이 여러 곳 있어요. 아래에서 골라주세요.";
-  renderOriginList(r.total);
+  renderOriginList();
   return null;
 }
 async function runScan(){
@@ -940,14 +944,7 @@ $("menuForm").addEventListener("submit",e=>{e.preventDefault();const v=$("menuNa
 $("sFind").addEventListener("click",()=>{resolveOrigin();markDirty()});
 $("sOriginList").addEventListener("click",async e=>{
   const b=e.target.closest("button");if(!b)return;
-  if(b.dataset.oi!=null){pickOrigin(originPick.list[+b.dataset.oi]);return}
-  if(b.hasAttribute("data-omore")&&originPick.more){
-    b.disabled=true;originPick.page++;
-    const r=await originPick.more(originPick.page);
-    originPick.list=[...originPick.list,...r.list];if(!r.hasMore)originPick.more=null;
-    const sc=$("sOriginList").querySelector("ul").scrollTop;
-    renderOriginList(0);$("sOriginList").querySelector("ul").scrollTop=sc;
-  }
+  if(b.dataset.oi!=null){const x=originPick.list[+b.dataset.oi];if(x)pickOrigin(x)}
 });
 $("sScan").addEventListener("click",runScan);
 $("sSave").addEventListener("click",saveSetup);
