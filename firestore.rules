@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    // 구글 계정으로 로그인했는지 (비밀번호용 익명 계정에 구글을 이어 붙인 경우 포함)
+    function isGoogle() {
+      return signedIn() && 'google.com' in request.auth.token.firebase.identities;
+    }
+
+    // 관리자: secret/admins 문서의 emails 목록에 있는 구글 계정
+    function isAdmin() {
+      return isGoogle()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in get(/databases/$(database)/documents/secret/admins).data.emails;
+    }
+
+    // 맛집 비밀번호: secret/config 문서의 password 값
+    function password() {
+      return get(/databases/$(database)/documents/secret/config).data.password;
+    }
+
+    // 회원: 현재 비밀번호를 맞힌 계정 (비밀번호를 바꾸면 모두 다시 입력해야 함)
+    function isMember() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.pw == password();
+    }
+
+    function validItems(d) {
+      return d.keys().hasOnly(['items']) && d.items is list && d.items.size() <= 300;
+    }
+
+    // 내 메뉴판: 구글 로그인한 본인만
+    match /users/{uid} {
+      allow read: if isGoogle() && request.auth.uid == uid;
+      allow create, update: if isGoogle() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['added', 'hidden'])
+        && request.resource.data.added is list && request.resource.data.added.size() <= 200
+        && request.resource.data.hidden is list && request.resource.data.hidden.size() <= 300;
+    }
+
+    // 비밀번호 확인: 맞는 비밀번호를 적었을 때만 등록됨
+    match /members/{uid} {
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['pw'])
+        && request.resource.data.pw == password();
+    }
+
+    // 맛집 목록: 비밀번호를 맞힌 사람과 관리자
+    match /places/current {
+      allow read: if isMember() || isAdmin();
+      allow create, update: if (isMember() || isAdmin()) && validItems(request.resource.data);
+    }
+
+    // 기본 맛집 목록(초기화용): 관리자만
+    match /places/default {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && validItems(request.resource.data);
+    }
+
+    // 관리자 확인용 (화면에서 관리자 기능을 보여줄지 판단)
+    match /admin/probe {
+      allow get: if isAdmin();
+    }
+
+    // secret/* 를 포함한 그 밖의 모든 경로는 차단
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
