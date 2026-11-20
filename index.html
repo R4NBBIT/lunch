@@ -136,6 +136,10 @@ dialog.mig-dlg{width:min(440px,calc(100vw - 32px))}
 .pg:disabled{opacity:.35;cursor:default}
 .pg-now{font-size:14px;color:var(--muted);display:flex;align-items:center;gap:6px}
 .pg-now input{width:3.6em;text-align:center;padding:8px 6px;font-weight:700}
+.mpick{display:flex;flex-direction:column;gap:2px;max-height:200px;overflow-y:auto;overscroll-behavior:contain;border-top:1px solid var(--line);padding-top:6px}
+.mpick label{align-items:center!important;padding:4px 0}
+.mpick input:disabled+span{color:var(--muted)}
+#migPickCount{color:var(--fg)!important;font-weight:700}
 .mig-warn{font-size:13px!important;color:var(--danger)}
 ul.items{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 ul.items li{display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 4px 4px 12px;font-size:14px}
@@ -490,7 +494,7 @@ function renderMenus(){
   if(isBase)return renderBaseMenus();
   const all=menus(),q=$("menuFilter").value.trim(),edit=true;
   const shown=q?all.filter(m=>m.includes(q)):all;
-  $("menuCount").textContent=`${all.length}개 | ${state.isGoogle?"내 메뉴판":"임시 메뉴판"}`;
+  $("menuCount").textContent=`${all.length}/${MAX_MENUS}개 | ${state.isGoogle?"내 메뉴판":"임시 메뉴판"}`;
   const note=$("menuNote");
   if(state.isGoogle){note.className="note";note.textContent="내가 추가하거나 뺀 메뉴는 내 계정에 저장되고, 나에게만 적용돼요."}
   else{note.className="callout";note.innerHTML=`<p><b>로그인하지 않아도 메뉴를 추가하거나 뺄 수 있어요.</b> 다만 지금 바꾼 메뉴판은 <b>이 창에만 임시로 저장</b>돼서, 창을 닫으면 처음 메뉴판으로 돌아가요. 구글로 로그인하면 계정에 저장돼서 다음에 들어와도, 다른 기기에서도 그대로 쓸 수 있어요.</p>`}
@@ -531,10 +535,17 @@ function addBaseMenu(v){
   if(cur.length>=500){toast("기본 메뉴는 500개까지 넣을 수 있어요");return}
   saveBase([...cur,v],`'${v}' 기본 메뉴판에 추가했어요`);
 }
+const MAX_MENUS=200; // 내 메뉴판에 둘 수 있는 메뉴 개수 (기본 메뉴 + 직접 추가한 메뉴)
+function menuFull(){
+  if(menus().length<MAX_MENUS)return false;
+  askConfirm("메뉴판이 꽉 찼어요",`내 메뉴판에는 메뉴를 <b>${MAX_MENUS}개</b>까지 둘 수 있어요. 기본 메뉴를 포함한 개수예요. 안 먹는 메뉴를 × 로 빼면 그만큼 새로 넣을 수 있어요.`,"확인",true);
+  return true;
+}
 function addMenu(v){
   const m=state.mine;
-  if(m.hidden.includes(v)){saveMine({added:m.added,hidden:m.hidden.filter(x=>x!==v)});toast(`'${v}' 다시 넣었어요`);return}
+  if(m.hidden.includes(v)){if(menuFull())return;saveMine({added:m.added,hidden:m.hidden.filter(x=>x!==v)});toast(`'${v}' 다시 넣었어요`);return}
   if(menus().includes(v)){toast("이미 있는 메뉴예요");return}
+  if(menuFull())return;
   saveMine({added:[...m.added,v],hidden:m.hidden});toast(`'${v}' 추가했어요`);
 }
 function removeMenu(v){
@@ -662,11 +673,12 @@ function handleUser(u){
 }
 // ---- 확인 창: 취소나 확인을 눌러야 닫혀요 ----
 let askRes=null;
-function askConfirm(title,body,ok){
+function askConfirm(title,body,ok,single){
   return new Promise(res=>{
     if(askRes)askRes(false);
     $("askTitle").textContent=title;$("askBody").innerHTML=body;$("askYes").textContent=ok;askRes=res;
-    const d=$("askDlg");if(!d.open)d.showModal();$("askNo").focus();
+    $("askNo").hidden=!!single;$("askYes").className=single?"btn small primary":"btn small danger";
+    const d=$("askDlg");if(!d.open)d.showModal();(single?$("askYes"):$("askNo")).focus();
   });
 }
 function askDone(v){const r=askRes;askRes=null;const d=$("askDlg");if(d.open)d.close();r&&r(v)}
@@ -675,7 +687,7 @@ function askDone(v){const r=askRes;askRes=null;const d=$("askDlg");if(d.open)d.c
 function renderMigrate(){
   const box=$("migrate");
   const dlg=$("migDlg");
-  if(!state.migrate){if(dlg.open)dlg.close();box.innerHTML="";state.migBuilt=false;return}
+  if(!state.migrate){if(dlg.open)dlg.close();box.innerHTML="";state.migBuilt=false;migPicked=null;return}
   if(!dlg.open){try{dlg.showModal()}catch(e){dlg.setAttribute("open","")}}
   if(state.ready.size<1+PRESETS.length){
     if(!box.querySelector("[data-loading]"))box.innerHTML=`<h2 id="migTitle">계정으로 옮길까요?</h2><p data-loading>계정에 저장된 내용을 불러오고 있어요…</p><div class="row" style="justify-content:flex-end"><button class="btn small" data-migrate-no>옮기지 않기</button></div>`;
@@ -692,6 +704,7 @@ function renderMigrate(){
     <label><input type="radio" name="migMenu" value="merge" checked><span>합치기 <small>양쪽에서 추가한 메뉴는 모두 넣고, 뺀 메뉴도 모두 빼요</small></span></label>
     <label><input type="radio" name="migMenu" value="keep"><span>계정 메뉴판 유지 <small>이 창에서 바꾼 메뉴판은 버려요</small></span></label>
     <label><input type="radio" name="migMenu" value="replace"><span>이 창 메뉴판으로 바꾸기 <small>계정 메뉴판을 덮어써요</small></span></label></fieldset>`;
+  if(gMenu)h+=`<div id="migMenuPick"></div>`;
   if(gIds.length>free.length){
     const left=[...free];
     h+=`<fieldset class="mig"><legend>계정의 프리셋 칸이 부족해요. 이 창의 프리셋을 어디에 넣을지 골라주세요</legend>`;
@@ -705,6 +718,40 @@ function renderMigrate(){
   h+=`<p class="mig-warn" id="migWarn" hidden></p>
   <div class="row" style="justify-content:flex-end"><button class="btn small" data-migrate-no>옮기지 않기</button><button class="btn small primary" data-migrate-yes>계정으로 옮기기</button></div>`;
   box.innerHTML=h;
+  renderMigMenuPick();
+}
+// 메뉴판 합친 결과가 200개를 넘는지 계산해요
+function migMenuCalc(){
+  const g=guestLoad(),acc=state.mine,mode=$("migrate").querySelector('input[name="migMenu"]:checked')?.value||"merge";
+  if(mode==="keep")return {mode};
+  const both=mode==="merge",base=baseMenus();
+  const hidden=[...new Set([...(both?acc.hidden:[]),...g.mine.hidden])].filter(m=>base.includes(m));
+  const fixed=both?acc.added:[];
+  const board=new Set([...base.filter(m=>!hidden.includes(m)),...fixed]);
+  const cands=[...new Set(g.mine.added)].filter(m=>!board.has(m));
+  const cap=Math.max(0,MAX_MENUS-board.size);
+  return {mode,hidden,fixed,cands,cap,need:cands.length>cap};
+}
+let migPicked=null; // 고른 메뉴를 기억해서, 합치기/바꾸기를 오가도 유지해요
+function renderMigMenuPick(){
+  const box=$("migMenuPick");if(!box)return;
+  const c=migMenuCalc();
+  const keep=migPicked?c.cands.filter(m=>migPicked.has(m)).slice(0,c.cap??0):null;
+  const on=m=>keep?keep.includes(m):c.cands.indexOf(m)<c.cap;
+  if(c.mode==="keep"||!c.need){box.innerHTML="";return}
+  box.innerHTML=c.cap===0
+    ?`<fieldset class="mig"><legend>메뉴판이 꽉 차서 추가한 메뉴는 옮길 수 없어요</legend><small>메뉴판에는 기본 메뉴를 포함해 ${MAX_MENUS}개까지 둘 수 있어요. 이 창에서 추가한 메뉴 ${c.cands.length}개는 옮기지 않고, 뺀 메뉴만 반영해요.</small></fieldset>`
+    :`<fieldset class="mig"><legend>메뉴판은 ${MAX_MENUS}개까지라, 이 창에서 추가한 메뉴 ${c.cands.length}개 중 <b>${c.cap}개</b>만 옮길 수 있어요. 옮길 메뉴를 골라주세요</legend>
+      <small id="migPickCount"></small>
+      <div class="mpick">${c.cands.map((m,i)=>`<label><input type="checkbox" data-mpick value="${esc(m)}" ${on(m)?"checked":""}><span>${esc(m)}</span></label>`).join("")}</div></fieldset>`;
+  updateMigPick();
+}
+function updateMigPick(){
+  const c=migMenuCalc(),boxes=[...$("migrate").querySelectorAll("[data-mpick]")];if(!boxes.length)return;
+  const n=boxes.filter(b=>b.checked).length;
+  migPicked=new Set(boxes.filter(b=>b.checked).map(b=>b.value));
+  for(const b of boxes)b.disabled=!b.checked&&n>=c.cap;
+  $("migPickCount").textContent=`${n}/${c.cap}개 골랐어요`;
 }
 function migratePlan(){
   const g=guestLoad(),box=$("migrate"),place={};
@@ -729,12 +776,12 @@ async function migrateGuest(btn){
   if(dup){warn.textContent="같은 칸을 두 번 고를 수 없어요. 칸을 다시 골라주세요.";warn.hidden=false;return}
   const over=Object.entries(place).filter(([,slot])=>state.presets[slot]);
   if(over.length&&!await askConfirm("계정 프리셋을 덮어쓸까요?",over.map(([id,slot])=>`프리셋 ${PRESETS.indexOf(slot)+1} <b>'${esc(state.presets[slot].name)}'</b> → <b>'${esc(g.presets[id].name)}'</b>`).join("<br>")+"<br>원래 프리셋은 되돌릴 수 없어요.","덮어쓰고 옮기기"))return;
-  const uid=state.user.uid,tasks=[],acc=state.mine;
+  const uid=state.user.uid,tasks=[];
   if((g.mine.added.length||g.mine.hidden.length)&&menu!=="keep"){
-    const both=menu==="merge";
-    const added=[...new Set([...(both?acc.added:[]),...g.mine.added])].slice(0,200);
-    const hidden=[...new Set([...(both?acc.hidden:[]),...g.mine.hidden])].filter(m=>baseMenus().includes(m)).slice(0,300);
-    tasks.push(setDoc(doc(db,"users",uid),{added,hidden}));
+    const c=migMenuCalc();
+    const chosen=c.need?[...$("migrate").querySelectorAll("[data-mpick]:checked")].map(b=>b.value).slice(0,c.cap):c.cands;
+    const added=[...new Set([...c.fixed,...chosen])].slice(0,200);
+    tasks.push(setDoc(doc(db,"users",uid),{added,hidden:c.hidden.slice(0,300)}));
   }
   for(const [id,slot] of Object.entries(place)){
     const p=g.presets[id];
@@ -962,7 +1009,7 @@ $("askNo").addEventListener("click",()=>askDone(false));
 $("migDlg").addEventListener("close",()=>{if(state.migrate)renderMigrate()});
 document.addEventListener("change",e=>{
   const t=e.target;
-  if(t.closest?.("#migrate")){migrateReset();return}if(!t.matches?.(".tog[data-skip]"))return;
+  if(t.closest?.("#migrate")){migrateReset();if(t.name==="migMenu")renderMigMenuPick();else if(t.matches("[data-mpick]"))updateMigPick();return}if(!t.matches?.(".tog[data-skip]"))return;
   const p=preset();if(!p)return;
   const k=t.dataset.skip,skip=new Set(p.skip);
   if(t.checked)skip.delete(k);else skip.add(k);
@@ -981,7 +1028,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.sort){state.page=1;state.sort=t.dataset.sort;try{localStorage.setItem("sort",state.sort)}catch(err){}renderPlaces();return}
   if(t.dataset.preset){setActive(t.dataset.preset);return}
   if(t.dataset.delMenu!=null){removeMenu(t.dataset.delMenu);return}
-  if(t.dataset.restoreMenu!=null){const v=t.dataset.restoreMenu;saveMine({added:state.mine.added,hidden:state.mine.hidden.filter(x=>x!==v)});toast(`'${v}' 되돌렸어요`);return}
+  if(t.dataset.restoreMenu!=null){const v=t.dataset.restoreMenu;if(menuFull())return;saveMine({added:state.mine.added,hidden:state.mine.hidden.filter(x=>x!==v)});toast(`'${v}' 되돌렸어요`);return}
   if(t.dataset.mode){state.menuMode=t.dataset.mode;$("menuFilter").value="";renderMenus();return}
   if(t.dataset.delBase!=null){
     const v=t.dataset.delBase;
